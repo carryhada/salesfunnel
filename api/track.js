@@ -9,7 +9,7 @@
 //    (선택) CONFIRM_SMS_ALLOWED_ORIGINS
 // ============================================================
 
-var ALLOWED_EVENTS = ['재생', '도달', '클릭'];
+var ALLOWED_EVENTS = ['재생', '도달', '클릭', '예약완료'];
 
 function normalizePhone(raw) {
   var d = String(raw || '').replace(/\D/g, '');

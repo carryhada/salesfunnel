@@ -188,8 +188,24 @@
     // 카카오 링크
     ['apKakao','apKakaoModal'].forEach(function(id){ var el=document.getElementById(id); if(el && C.kakaoUrl) el.href=C.kakaoUrl; });
 
-    // 완료 확인 링크
-    ['apDoneLink','apDoneModal'].forEach(function(id){ var el=document.getElementById(id); if(el) el.href=C.doneUrl; });
+    // 완료 확인 링크 → 예약완료 확인문자 발송 + 시트기록 후 /done 이동
+    var lead = (function(){ try{ return JSON.parse(localStorage.getItem('scLead')||'{}'); }catch(e){ return {}; } })();
+    function completeAndGo(e){
+      e.preventDefault();
+      var phone = lead.phone || '';
+      var key = 'sc_booking_done_' + (phone || 'anon');
+      if (!localStorage.getItem(key)) {        // 중복 발송 방지
+        localStorage.setItem(key, '1');
+        if (phone) {
+          try{ fetch('/api/confirm-sms', {method:'POST', keepalive:true, headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ type:'booking', name:lead.name||'', phone:phone }) }); }catch(_){}
+        }
+        try{ fetch('/api/track', {method:'POST', keepalive:true, headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ event:'예약완료', name:lead.name||'', phone:phone, email:lead.email||'' }) }); }catch(_){}
+      }
+      window.location.href = C.doneUrl;
+    }
+    ['apDoneLink','apDoneModal'].forEach(function(id){ var el=document.getElementById(id); if(el){ el.href=C.doneUrl; el.addEventListener('click', completeAndGo); } });
 
     // 카드결제 (토스, 새 탭)
     var toss = document.getElementById('apTossBtn');

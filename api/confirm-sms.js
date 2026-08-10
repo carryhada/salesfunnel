@@ -78,13 +78,17 @@ module.exports = async function handler(req, res) {
     return;
   }
 
-  // 확인문자 내용 (URL 포함 → 길이상 자동 LMS)
+  // 확인문자 내용 — type: 'optin'(무료특강 신청, 기본) / 'booking'(상담 예약 접수)
+  const type = String(body.type || 'optin');
   const watchUrl = `https://${req.headers.host}/watch`;
   const greet = name ? `${name}님, ` : '';
-  const text =
-    `[캐리퀸] ${greet}무료특강 신청이 완료되었습니다!\n` +
-    `아래 링크에서 지금 바로 영상을 시청하세요 ▶\n` +
-    `${watchUrl}`;
+  const text = type === 'booking'
+    ? `[캐리퀸] ${greet}1:1 상담 예약·접수가 완료되었습니다!\n` +
+      `예약하신 시간에 만나뵙겠습니다. 준비사항은 순차 안내드릴게요.\n` +
+      `문의사항은 이 문자에 회신 주세요.`
+    : `[캐리퀸] ${greet}무료특강 신청이 완료되었습니다!\n` +
+      `아래 링크에서 지금 바로 영상을 시청하세요 ▶\n` +
+      `${watchUrl}`;
 
   const message = {
     to: phone,
@@ -92,7 +96,7 @@ module.exports = async function handler(req, res) {
     text: text,
     type: byteLen(text) > 90 ? 'LMS' : 'SMS'
   };
-  if (message.type === 'LMS') message.subject = '무료특강 신청 완료';
+  if (message.type === 'LMS') message.subject = type === 'booking' ? '상담 예약 접수 완료' : '무료특강 신청 완료';
 
   try {
     const r = await fetch(SOLAPI_ENDPOINT, {
