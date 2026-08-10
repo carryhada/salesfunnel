@@ -61,13 +61,15 @@ function previewTargets() {
 
 /* ── ② 테스트 발송 ──────────────────────────────────────────────────── */
 function sendTestOnly() {
-  if (!TEST_PHONE) { _toast('Remind.gs 상단 TEST_PHONE에 본인 번호를 넣어주세요.'); return; }
   var cfg = _solapi(); if (!cfg) return;
+  // TEST_PHONE 이 비어 있으면 발신번호(SOLAPI_SENDER)로 보냄 — 본인 번호라 테스트에 안전
+  var to = _phone(TEST_PHONE) || cfg.sender;
+  if (!to) { _toast('Remind.gs 상단 TEST_PHONE에 본인 번호를 넣어주세요.'); return; }
   ['A','B','C'].forEach(function (g) {
-    _send(cfg, _phone(TEST_PHONE), _message(g, '테스트'));
+    _send(cfg, to, _message(g, '테스트'));
     Utilities.sleep(200);
   });
-  _toast('테스트 문자 3건을 ' + TEST_PHONE + ' 로 보냈습니다.');
+  _toast('테스트 문자 3건을 ' + to + ' 로 보냈습니다.');
 }
 
 /* ── 실제 발송 ──────────────────────────────────────────────────────── */
