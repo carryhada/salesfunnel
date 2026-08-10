@@ -136,6 +136,14 @@
       .then(function(d){if(!d.ok)console.warn('확인문자 미발송:',d);})
       .catch(function(e){console.warn('확인문자 요청 오류:',e);});
 
+    // ── 구글시트 자동 리스트업 (서버리스 /api/save-lead 경유) ──
+    fetch('/api/save-lead',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:name,phone:phone,email:email,source:'optin-1'})
+    }).then(function(r){return r.json();})
+      .then(function(d){if(!d.ok)console.warn('시트 저장 실패:',d);})
+      .catch(function(e){console.warn('시트 요청 오류:',e);});
+
     function showSuccess(){
       form.style.display='none';
       var s=document.getElementById('success');

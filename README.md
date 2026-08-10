@@ -52,6 +52,21 @@ Vercel → Project → Settings → **Environment Variables** 에 등록:
 - 남용/요금폭탄 방지: 솔라피에서 충전잔액·발송한도를 관리하세요.
 - 문자 문구 수정: `api/confirm-sms.js`의 `text` 변수.
 
+## 구글시트 자동 리스트업
+1차 폼 제출 시 → 스티비/문자에 더해 **구글시트에 한 줄 자동 추가**.
+서버리스 함수 `api/save-lead.js` 가 구글 Apps Script 웹앱으로 전달합니다(웹앱 URL·토큰은 서버에만 보관).
+
+설치: `apps-script/Code.gs` 를 구글시트의 Apps Script에 붙여넣고 웹앱으로 배포(자세한 절차는 파일 상단 주석).
+
+Vercel 환경변수:
+| 변수 | 값 |
+|---|---|
+| `GOOGLE_SHEET_WEBHOOK_URL` | Apps Script 배포 URL(.../exec) |
+| `GOOGLE_SHEET_TOKEN` | Apps Script `SECRET_TOKEN` 과 동일한 임의 문자열 |
+
+- 시트 헤더 권장: `일시 | 성함 | 휴대폰 | 이메일 | 유입경로`
+- 다른 단계(예: 4차 신청)도 `source` 값만 바꿔 같은 시트/함수로 확장 가능.
+
 ## 로컬 미리보기
 ```bash
 python3 -m http.server 8080
