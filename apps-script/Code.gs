@@ -43,8 +43,16 @@ var HEADER_ALIASES = {
   '재생시각': 'playTs',
   '도달시각': 'reachTs',
   '클릭시각': 'clickTs',
-  'utm/유입': 'utm', 'utm': 'utm', '유입': 'utm', '유입경로': 'utm'
+  'utm/유입': 'utm', 'utm': 'utm', '유입': 'utm', '유입경로': 'utm',
+  /* 2차 문자 발송 체크박스 (사람이 직접 켜고 끌 수 있음) */
+  '문자a': 'smsA', '문자a(미시청)': 'smsA',
+  '문자b': 'smsB', '문자b(중도이탈)': 'smsB',
+  '문자c': 'smsC', '문자c(도달미신청)': 'smsC'
 };
+
+/* 결제(접수) 완료자만 따로 쌓는 탭 */
+var PAID_SHEET_NAME = '결제완료';
+var PAID_HEADERS = ['시각', '이름', '전화', '이메일', '토큰', '결제수단', '입금확인', '메모'];
 
 /* 단계 서열 */
 var STAGE_RANK = { '옵트인': 0, '재생': 1, '도달': 2, '클릭': 3, '신청': 4 };
@@ -70,7 +78,7 @@ function doPost(e) {
     if (given !== expected) return _json({ ok: false, error: 'unauthorized' });
 
     var action = String(body.action || '').trim();
-    if (action !== 'optin' && action !== 'track') {
+    if (action !== 'optin' && action !== 'track' && action !== 'mark') {
       return _json({ ok: false, error: 'unknown_action', action: action });
     }
 
@@ -93,6 +101,27 @@ function doPost(e) {
       }
       row = _appendOptin(sh, map, body, token);
       return _json({ ok: true, action: 'optin', mode: 'append', row: row, token: token });
+    }
+
+    // action === 'mark' : 2차 문자 발송 표시 (체크박스 ON + 상태 로그)
+    if (action === 'mark') {
+      if (row < 0) return _json({ ok: false, error: 'token_not_found', token: token });
+      var group = String(body.group || '').toUpperCase();          // 'A' | 'B' | 'C'
+      var key = { A: 'smsA', B: 'smsB', C: 'smsC' }[group];
+      if (!key) return _json({ ok: false, error: 'bad_group', group: group });
+      if (map[key]) {
+        var cell = sh.getRange(row, map[key]);
+        cell.setDataValidation(SpreadsheetApp.newDataValidation().requireCheckbox().build());
+        cell.setValue(true);
+      }
+      if (map.status) {   // 감사 로그 (언제 무엇을 보냈는지 누적)
+        var label = { A: 'remind_optin_sent', B: 'remind_partial_sent', C: 'remind_ready_sent' }[group];
+        var cur = String(sh.getRange(row, map.status).getValue() || '');
+        if (cur.indexOf(label) === -1) {
+          sh.getRange(row, map.status).setValue(cur ? cur + ',' + label : label);
+        }
+      }
+      return _json({ ok: true, action: 'mark', row: row, group: group });
     }
 
     // action === 'track'
@@ -227,7 +256,19 @@ function _appendOptin(sh, map, body, token) {
   _put(vals, map.utm, String(body.utm || ''));
 
   sh.getRange(row, 1, 1, lastCol).setValues([vals]);
+  _initCheckboxes(sh, map, row);   // 문자A/B/C 체크박스 생성(꺼진 상태)
   return row;
+}
+
+/** 문자 발송 체크박스 3개를 해당 행에 세팅 (없는 열은 건너뜀) */
+function _initCheckboxes(sh, map, row) {
+  var cb = SpreadsheetApp.newDataValidation().requireCheckbox().build();
+  ['smsA', 'smsB', 'smsC'].forEach(function (k) {
+    if (!map[k]) return;
+    var cell = sh.getRange(row, map[k]);
+    cell.setDataValidation(cb);
+    if (cell.getValue() === '') cell.setValue(false);
+  });
 }
 
 /** 기존 행의 비어있는 인적사항만 보강 (덮어쓰기 방지) */
@@ -283,7 +324,55 @@ function _applyTrack(sh, map, row, body) {
     sh.getRange(row, map.reason).setValue(String(body.unlockReason));
   }
 
-  return { stage: finalStage, watchedSec: watched };
+  // 5) 신청(접수완료) → '결제완료' 탭에 따로 적재
+  var paid = false;
+  if (event === 'apply') {
+    paid = _upsertPaid(sh, map, row, body);
+  }
+
+  return { stage: finalStage, watchedSec: watched, paid: paid };
+}
+
+/**
+ * '결제완료' 탭 upsert (토큰 기준, 중복 방지)
+ *  ※ 실제 입금/결제 확인은 사람이 '입금확인' 체크박스로 처리
+ */
+function _upsertPaid(mainSh, map, row, body) {
+  var ss = _ss();
+  var ps = ss.getSheetByName(PAID_SHEET_NAME);
+  if (!ps) {
+    ps = ss.insertSheet(PAID_SHEET_NAME);
+    ps.appendRow(PAID_HEADERS);
+    ps.setFrozenRows(1);
+  }
+  if (ps.getLastRow() === 0) ps.appendRow(PAID_HEADERS);
+
+  var token = String(mainSh.getRange(row, map.token).getValue() || '');
+  // 토큰 열(E=5)에서 기존 행 찾기
+  var last = ps.getLastRow();
+  if (last >= 2) {
+    var col = ps.getRange(2, 5, last - 1, 1).getValues();
+    for (var i = 0; i < col.length; i++) {
+      if (String(col[i][0]).trim() === token) return false;   // 이미 있음 → 중복 적재 안 함
+    }
+  }
+
+  var r = ps.getLastRow() + 1;
+  ps.getRange(r, 3).setNumberFormat('@');   // 전화 문자열 고정
+  ps.getRange(r, 1, 1, PAID_HEADERS.length).setValues([[
+    _now(),
+    String(mainSh.getRange(row, map.name).getValue() || ''),
+    String(mainSh.getRange(row, map.phone).getValue() || ''),
+    String(mainSh.getRange(row, map.email).getValue() || ''),
+    token,
+    String(body.payMethod || ''),   // 카드 / 입금 (고객이 누른 버튼 기준)
+    false,                          // 입금확인 체크박스 (사장님이 대조 후 직접 체크)
+    ''
+  ]]);
+  ps.getRange(r, 7).setDataValidation(
+    SpreadsheetApp.newDataValidation().requireCheckbox().build()
+  );
+  return true;
 }
 
 function _put(arr, col, val) { if (col) arr[col - 1] = val; }
