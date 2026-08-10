@@ -117,6 +117,9 @@
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){alert('이메일 주소를 정확히 입력해 주세요.');form.email.focus();return;}
     if(!agree.checked){alert('개인정보 수집·이용에 동의해 주세요.');return;}
 
+    // 2단계 시청추적에서 "누가 봤는지" 식별하기 위해 방문자 정보 저장
+    try{ localStorage.setItem('scLead', JSON.stringify({name:name,phone:phone,email:email})); }catch(e){}
+
     // ── 스티비(Stibee) 주소록으로 전송 ──
     var STIBEE_ENDPOINT='https://stibee.com/api/v1.0/lists/xaS0ekIoukh2lSJZ5BQAuS59LAWE8g==/public/subscribers';
     btn.disabled=true; btn.textContent='전송 중...';

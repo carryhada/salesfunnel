@@ -196,21 +196,70 @@
   var VIDEO_ID = 'Cc7eM5fo8E4';       // 무료특강 유튜브 영상 ID
   var FALLBACK_SECONDS = 15;          // 15초 후 신청 버튼 오픈
 
-  // ② 영상 클릭 재생
+  // ===== 방문자(리드) 식별 : 1단계에서 저장한 값 =====
+  var LEAD = (function(){ try{ return JSON.parse(localStorage.getItem('scLead')||'{}'); }catch(e){ return {}; } })();
+
+  // ===== 시청 추적 → /api/track → 구글시트(시청추적 탭). 이벤트별 1회만 =====
+  function track(event){
+    var key = 'sc_trk_' + event + '_' + (LEAD.phone || 'anon');
+    if (localStorage.getItem(key)) return;      // 새로고침 중복 방지
+    localStorage.setItem(key, '1');
+    try{
+      fetch('/api/track', {
+        method:'POST', keepalive:true,          // 페이지 이동해도 전송 보장
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ event:event, name:LEAD.name||'', phone:LEAD.phone||'', email:LEAD.email||'' })
+      }).catch(function(){});
+    }catch(e){}
+  }
+
+  // ② 영상 : 유튜브 IFrame API로 재생 + 85% 도달 추적
   var cover = document.getElementById('vslCover');
-  var player = document.getElementById('vslPlayer');
+  var playerBox = document.getElementById('vslPlayer');
+  var ytPlayer = null, apiReady = false, wantPlay = false, playLogged = false, reachFired = false, progIv = null;
+
+  var tag = document.createElement('script');
+  tag.src = 'https://www.youtube.com/iframe_api';
+  document.head.appendChild(tag);
+  window.onYouTubeIframeAPIReady = function(){ apiReady = true; if (wantPlay) createPlayer(); };
+
   cover.addEventListener('click', function(){
-    if (VIDEO_ID === 'YOUR_YOUTUBE_ID') {
-      alert('영상 ID를 아직 넣지 않았습니다.\nwatch/index.html 상단 VIDEO_ID 값을 유튜브 영상 ID로 바꿔주세요.');
-      return;
-    }
-    var ifr = document.createElement('iframe');
-    ifr.src = 'https://www.youtube.com/embed/' + VIDEO_ID + '?autoplay=1&rel=0&modestbranding=1&playsinline=1';
-    ifr.allow = 'autoplay; encrypted-media; picture-in-picture; fullscreen';
-    ifr.allowFullscreen = true;
-    player.innerHTML = '';
-    player.appendChild(ifr);
+    if (VIDEO_ID === 'YOUR_YOUTUBE_ID'){ alert('영상 ID를 아직 넣지 않았습니다. watch/index.html 상단 VIDEO_ID를 바꿔주세요.'); return; }
+    cover.style.display = 'none';
+    if (apiReady) createPlayer(); else wantPlay = true;
   });
+
+  function createPlayer(){
+    var target = document.createElement('div');
+    playerBox.appendChild(target);
+    ytPlayer = new YT.Player(target, {
+      width:'100%', height:'100%', videoId: VIDEO_ID,
+      playerVars:{ autoplay:1, rel:0, modestbranding:1, playsinline:1 },
+      events:{
+        onStateChange: function(e){
+          if (e.data === YT.PlayerState.PLAYING){
+            if (!playLogged){ playLogged = true; track('재생'); }   // ▶ 재생 기록
+            startProgress();
+          }
+        }
+      }
+    });
+  }
+
+  function startProgress(){
+    if (progIv) return;
+    progIv = setInterval(function(){
+      if (!ytPlayer || !ytPlayer.getDuration) return;
+      var d = ytPlayer.getDuration(), t = ytPlayer.getCurrentTime();
+      if (d > 0 && (t / d) >= 0.85 && !reachFired){                 // 🎯 85% 도달 기록
+        reachFired = true; track('도달');
+        clearInterval(progIv); progIv = null;
+      }
+    }, 2000);
+  }
+
+  // ⑥ CTA 클릭 기록 (offer로 이동 전 비콘 전송)
+  document.getElementById('vslCta').addEventListener('click', function(){ track('클릭'); });
 
   // ③ 카운트다운 + ⑥ 잠금 해제
   var remain = FALLBACK_SECONDS;
