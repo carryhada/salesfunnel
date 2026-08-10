@@ -1,0 +1,19 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "cleanUrls": true,
+  "trailingSlash": false,
+  "redirects": [
+    { "source": "/1", "destination": "/", "permanent": false },
+    { "source": "/2", "destination": "/watch", "permanent": false },
+    { "source": "/3", "destination": "/offer", "permanent": false },
+    { "source": "/4", "destination": "/apply", "permanent": false }
+  ],
+  "headers": [
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ]
+}

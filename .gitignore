@@ -1,0 +1,16 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
+
+# Vercel
+.vercel
+
+# Logs
+*.log
+
+# Node (혹시 나중에 빌드 도구 도입 시)
+node_modules/
