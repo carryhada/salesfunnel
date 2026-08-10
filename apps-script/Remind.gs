@@ -65,11 +65,19 @@ function sendTestOnly() {
   // TEST_PHONE 이 비어 있으면 발신번호(SOLAPI_SENDER)로 보냄 — 본인 번호라 테스트에 안전
   var to = _phone(TEST_PHONE) || cfg.sender;
   if (!to) { _toast('Remind.gs 상단 TEST_PHONE에 본인 번호를 넣어주세요.'); return; }
+
+  var lines = [];
   ['A','B','C'].forEach(function (g) {
-    _send(cfg, to, _message(g, '테스트'));
+    var r = _send(cfg, to, _message(g, '테스트'));
+    lines.push(g + ' : ' + (r.ok ? '성공' : '실패 → ' + r.info));
     Utilities.sleep(200);
   });
-  _toast('테스트 문자 3건을 ' + to + ' 로 보냈습니다.');
+  SpreadsheetApp.getUi().alert(
+    '테스트 발송 결과',
+    '수신번호 ' + to + '\n발신번호 ' + cfg.sender + '\n\n' + lines.join('\n') +
+    '\n\n※ 모두 성공인데 문자가 안 오면 솔라피 콘솔 > 발송내역에서 상태를 확인하세요.',
+    SpreadsheetApp.getUi().ButtonSet.OK
+  );
 }
 
 /* ── 실제 발송 ──────────────────────────────────────────────────────── */
@@ -82,7 +90,8 @@ function runSend(group, quiet) {
   var sent = 0, fail = 0;
   for (var i = 0; i < targets.length && sent < DAILY_CAP; i++) {
     var t = targets[i];
-    if (_send(cfg, t.phone, _message(group, t.name))) {
+    var r = _send(cfg, t.phone, _message(group, t.name));
+    if (r.ok) {
       sent++;
       _stamp(sh, map, t.row, group);          // 체크박스 ON + 상태 기록
     } else fail++;
@@ -201,6 +210,7 @@ function _solapi() {
   return cfg;
 }
 
+/* 발송. 성공 여부와 함께 실패 사유를 그대로 돌려준다(진단용) */
 function _send(cfg, to, text) {
   try {
     var date = new Date().toISOString();
@@ -211,16 +221,27 @@ function _send(cfg, to, text) {
     var isLMS = _bytes(text) > 90;
     var msg = { to: to, from: cfg.sender, text: text, type: isLMS ? 'LMS' : 'SMS' };
     if (isLMS) msg.subject = '캐리퀸 안내';
+
     var res = UrlFetchApp.fetch('https://api.solapi.com/messages/v4/send', {
       method: 'post', contentType: 'application/json',
       headers: { Authorization: 'HMAC-SHA256 apiKey=' + cfg.key + ', date=' + date + ', salt=' + salt + ', signature=' + sig },
       payload: JSON.stringify({ message: msg }), muteHttpExceptions: true
     });
     var code = res.getResponseCode(), body = res.getContentText();
-    if (code >= 200 && code < 300) { var d = JSON.parse(body); return d.statusCode === '2000' || !!d.messageId; }
-    Logger.log('Solapi 실패 ' + code + ' ' + body);
-    return false;
-  } catch (e) { Logger.log('Solapi 오류 ' + e); return false; }
+    Logger.log('Solapi ' + code + ' ' + body);
+
+    var d = null; try { d = JSON.parse(body); } catch (e) {}
+    if (code >= 200 && code < 300 && d) {
+      // 접수는 됐지만 개별 실패(잔액/발신번호 등)인 경우 statusMessage에 사유가 담김
+      var ok = (d.statusCode === '2000') || (d.groupId && !d.errorCode);
+      if (ok) return { ok: true, info: 'sent' };
+      return { ok: false, info: (d.statusCode || d.errorCode || '') + ' ' + (d.statusMessage || d.errorMessage || body.slice(0, 120)) };
+    }
+    return { ok: false, info: 'HTTP ' + code + ' ' + (d ? (d.errorCode + ' ' + d.errorMessage) : body.slice(0, 120)) };
+  } catch (e) {
+    Logger.log('Solapi 오류 ' + e);
+    return { ok: false, info: String(e).slice(0, 120) };
+  }
 }
 
 /* ── 유틸 ───────────────────────────────────────────────────────────── */
