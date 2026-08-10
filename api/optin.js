@@ -58,9 +58,10 @@ async function postToSheets(payload) {
       const text = await r.text();
       let data; try { data = JSON.parse(text); } catch (e) { data = null; }
       if (r.ok && data && data.ok) return { ok: true, data };
+      if (data && data.error) return { ok: false, error: data.error };   // Apps Script가 준 사유 그대로
       if (attempt === 1) {
         console.error('sheets 응답 이상:', r.status, text.slice(0, 300));
-        return { ok: false, error: (data && data.error) || 'sheets_bad_response' };
+        return { ok: false, error: data ? 'sheets_bad_response' : 'sheets_non_json_' + r.status };
       }
     } catch (err) {
       if (attempt === 1) {
