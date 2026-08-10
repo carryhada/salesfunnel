@@ -6,6 +6,7 @@
 <title>1:1 상담 예약 · 접수 | 쇼핑커넥트 수익화</title>
 <meta name="robots" content="noindex" />
 <link rel="stylesheet" href="/assets/css/common.css" />
+<script src="/assets/js/pixel.js"></script>
 <style>
   .ap-eyebrow-wrap{text-align:center;margin-bottom:18px;}
   .ap-sec{margin-top:26px;}
@@ -203,6 +204,7 @@
         }
         try{ fetch('/api/track', {method:'POST', keepalive:true, headers:{'Content-Type':'application/json'},
           body: JSON.stringify({ tid:TID, stage:'예약완료', name:lead.name||'', phone:phone, email:lead.email||'' }) }); }catch(_){}
+        if (window.fbq) fbq('track','Schedule',{content_name:'상담예약접수'});   // 메타 픽셀: 예약 전환
       }
       window.location.href = C.doneUrl;
     }
@@ -212,12 +214,13 @@
     var toss = document.getElementById('apTossBtn');
     if (C.paymentUrl){ toss.href=C.paymentUrl; toss.target='_blank'; toss.rel='noopener noreferrer'; }
     toss.addEventListener('click', function(e){
-      if (!C.paymentUrl){ e.preventDefault(); alert('카드결제 링크가 아직 연결되지 않았습니다.\napply/index.html 상단 paymentUrl 을 넣어주세요.'); }
+      if (!C.paymentUrl){ e.preventDefault(); alert('카드결제 링크가 아직 연결되지 않았습니다.\napply/index.html 상단 paymentUrl 을 넣어주세요.'); return; }
+      if (window.fbq) fbq('track','InitiateCheckout',{value:50000,currency:'KRW',content_name:'카드결제'});
     });
 
     // 온라인 입금 모달
     var modal=document.getElementById('apModal'), openBtn=document.getElementById('apDepositBtn');
-    function open(){ modal.hidden=false; document.body.style.overflow='hidden'; }
+    function open(){ modal.hidden=false; document.body.style.overflow='hidden'; if(window.fbq) fbq('track','InitiateCheckout',{value:50000,currency:'KRW',content_name:'온라인입금'}); }
     function close(){ modal.hidden=true; document.body.style.overflow=''; }
     openBtn.addEventListener('click', open);
     modal.querySelectorAll('[data-close]').forEach(function(el){ el.addEventListener('click', close); });

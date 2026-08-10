@@ -10,6 +10,7 @@
 <meta property="og:description" content="왕초보도 가능한 네이버 쇼핑커넥트 수익화. 무료특강 영상을 바로 받아보세요." />
 <meta property="og:locale" content="ko_KR" />
 <link rel="stylesheet" href="/assets/css/common.css" />
+<script src="/assets/js/pixel.js"></script>
 </head>
 <body>
   <div class="topbar"></div>
@@ -120,6 +121,7 @@
     // 리드 식별 토큰 발급 + 저장 (퍼널 전체에서 같은 사람으로 추적)
     var TID=(function(){var c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',s='';for(var i=0;i<11;i++)s+=c.charAt(Math.floor(Math.random()*c.length));return s;})();
     try{ localStorage.setItem('scLead', JSON.stringify({tid:TID,name:name,phone:phone,email:email})); }catch(e){}
+    if(window.fbq) fbq('track','Lead');   // 메타 픽셀: 리드 전환
 
     // ── 스티비(Stibee) 주소록으로 전송 ──
     var STIBEE_ENDPOINT='https://stibee.com/api/v1.0/lists/xaS0ekIoukh2lSJZ5BQAuS59LAWE8g==/public/subscribers';
