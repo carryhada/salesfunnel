@@ -35,7 +35,8 @@ var KEY_POINT = '7분';
 /* ── 메뉴 ────────────────────────────────────────────────────────────── */
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('2차문자')
-    .addItem('⓪ 연결·잔액 확인', 'checkSolapi')
+    .addItem('⓪ 권한 승인 (최초 1회)', 'authorize')
+    .addItem('⓪-2 연결·잔액 확인', 'checkSolapi')
     .addItem('① 대상 미리보기', 'previewTargets')
     .addItem('② 테스트 발송(내 번호)', 'sendTestOnly')
     .addSeparator()
@@ -53,7 +54,18 @@ function sendC(){ runSend('C'); }
 function sendAll(){ ['A','B','C'].forEach(function(g){ runSend(g, true); }); _toast('전체 발송 완료'); }
 
 /**
- * ⓪ 연결·잔액 확인 (권한 승인용으로도 사용)
+ * ⓪ 권한 승인 (최초 1회)
+ *  ⚠️ 이 함수는 일부러 try/catch 를 쓰지 않습니다.
+ *     오류를 잡아버리면 구글이 "권한 승인" 창을 띄우지 못하기 때문입니다.
+ *     실행 → 승인창 → 고급 → 이동 → 허용 순서로 진행하면 됩니다.
+ */
+function authorize() {
+  UrlFetchApp.fetch('https://api.solapi.com/cash/v1/balance', { muteHttpExceptions: true });
+  SpreadsheetApp.getActiveSpreadsheet().toast('권한 승인이 끝났습니다. 이제 ⓪-2 연결·잔액 확인을 눌러보세요.', '2차문자', 8);
+}
+
+/**
+ * ⓪-2 연결·잔액 확인
  *  · Apps Script 편집기에서 이 함수를 ▶실행하면 외부요청 권한 승인창이 뜹니다.
  *    (문자 발송에 필요한 권한 — 한 번만 허용하면 이후 메뉴가 정상 동작)
  *  · 승인 후에는 솔라피 API 연결 상태와 남은 잔액을 알려줍니다.
@@ -85,8 +97,9 @@ function checkSolapi() {
       out = '❌ 솔라피 응답 오류 (HTTP ' + code + ')\n' + body.slice(0, 200);
     }
   } catch (e) {
-    out = '❌ 오류\n' + String(e).slice(0, 300) +
-          '\n\n※ 권한 오류라면: Apps Script 편집기에서 함수 checkSolapi 를 ▶실행 → 권한 허용';
+    // 권한 오류는 가로채지 않고 그대로 던져야 구글이 승인창을 띄운다
+    if (String(e).indexOf('permission') !== -1 || String(e).indexOf('권한') !== -1) throw e;
+    out = '❌ 오류\n' + String(e).slice(0, 300);
   }
   Logger.log(out);
   try { SpreadsheetApp.getUi().alert('솔라피 연결 확인', out, SpreadsheetApp.getUi().ButtonSet.OK); }
