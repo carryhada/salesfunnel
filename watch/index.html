@@ -195,30 +195,46 @@
 <script>
   // ===== 설정 =====
   var VIDEO_ID = 'Cc7eM5fo8E4';       // 무료특강 유튜브 영상 ID
-  var FALLBACK_SECONDS = 15;          // 15초 후 신청 버튼 오픈
+  // 신청 버튼이 열리는 기준(초). ⚠️ 지금은 테스트용 15초 — 운영 시 780(13분)으로 변경
+  //  · 실제 영상을 이 시간만큼 보면 → 해제사유 'watch'
+  //  · 영상 없이 페이지에 이 시간 머물면 → 'timer' 또는 'timer(무재생)'
+  var UNLOCK_SECONDS = 15;
 
-  // ===== 방문자(리드) 식별 : 토큰(URL ?t 우선, 없으면 localStorage) =====
+  // ===== 방문자(리드) 식별 : 토큰(URL ?t 우선, 없으면 localStorage. 서버는 쿠키로도 폴백) =====
   var LEAD = (function(){ try{ return JSON.parse(localStorage.getItem('scLead')||'{}'); }catch(e){ return {}; } })();
-  var TID = (new URLSearchParams(location.search)).get('t') || LEAD.tid || '';
+  var TOKEN = (new URLSearchParams(location.search)).get('t') || LEAD.tid || '';
 
-  // ===== 단계 기록 → /api/track → 구글시트(토큰으로 같은 행 업데이트) =====
-  function track(stage, extra){
-    extra = extra || {};
+  // ===== 이벤트 전송 → /api/track (play|reach|click|apply) =====
+  // 실패해도 화면은 그대로 진행. 이탈 순간에는 sendBeacon으로 확실히 보냄.
+  function sendTrack(event, opts){
+    opts = opts || {};
+    var body = JSON.stringify({
+      token: TOKEN, event: event,
+      watchedSec: (opts.watchedSec == null ? watchedSec : opts.watchedSec),
+      unlockReason: opts.unlockReason || ''
+    });
     try{
-      fetch('/api/track', {
-        method:'POST', keepalive:true,          // 페이지 이동해도 전송 보장
-        headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ tid:TID, stage:stage, reason:(extra.reason||''),
-          watchSec:(extra.watchSec==null?'':extra.watchSec),
-          name:LEAD.name||'', phone:LEAD.phone||'', email:LEAD.email||'' })
-      }).catch(function(){});
+      if (opts.beacon && navigator.sendBeacon){
+        navigator.sendBeacon('/api/track', new Blob([body], {type:'text/plain'}));
+        return;
+      }
+      fetch('/api/track', { method:'POST', keepalive:true,
+        headers:{'Content-Type':'application/json'}, body: body }).catch(function(){});
     }catch(e){}
+  }
+
+  var sentOnce = {};                       // 최초 1회만 보낼 이벤트 기록
+  function sendOnce(event, opts){
+    if (sentOnce[event]) return;
+    sentOnce[event] = true;
+    sendTrack(event, opts);
   }
 
   // ② 영상 : 유튜브 IFrame API로 재생 + 85% 도달 추적
   var cover = document.getElementById('vslCover');
   var playerBox = document.getElementById('vslPlayer');
-  var ytPlayer = null, apiReady = false, wantPlay = false, playLogged = false, reachFired = false, progIv = null, watchSec = 0;
+  var ytPlayer = null, apiReady = false, wantPlay = false;
+  var playStarted = false, isPlaying = false, progIv = null, watchedSec = 0, unlocked = false;
 
   // 영상 썸네일을 덮개 배경으로 표시 (재생 전)
   (function(){
@@ -255,8 +271,10 @@
       playerVars:{ autoplay:1, rel:0, modestbranding:1, playsinline:1 },
       events:{
         onStateChange: function(e){
-          if (e.data === YT.PlayerState.PLAYING){
-            if (!playLogged){ playLogged = true; track('재생'); }   // ▶ 재생 기록
+          isPlaying = (e.data === YT.PlayerState.PLAYING);
+          if (isPlaying){
+            playStarted = true;
+            sendOnce('play', { watchedSec: watchedSec });   // ▶ 최초 재생 1회만
             startProgress();
           }
         }
@@ -264,24 +282,34 @@
     });
   }
 
+  // 실제 재생 시간 누적 (1초마다) + 목표 도달 시 잠금 해제
   function startProgress(){
     if (progIv) return;
     progIv = setInterval(function(){
       if (!ytPlayer || !ytPlayer.getCurrentTime) return;
-      var d = ytPlayer.getDuration ? ytPlayer.getDuration() : 0;
       var t = ytPlayer.getCurrentTime();
-      if (t > watchSec) watchSec = Math.round(t);          // 시청초 누적(최대치)
-      if (d > 0 && (t / d) >= 0.85) reachFired = true;      // 85% 시청 여부(해제사유용)
+      if (t > watchedSec) watchedSec = Math.round(t);
+      if (!unlocked && watchedSec >= UNLOCK_SECONDS) unlock('watch');   // 실제 시청으로 도달
     }, 1000);
   }
 
-  // ⑥ CTA 클릭 기록 (consult로 이동 전 비콘 전송)
+  // 20초마다 시청초 갱신 (재생 중일 때만)
+  setInterval(function(){
+    if (playStarted && isPlaying) sendTrack('play', { watchedSec: watchedSec });
+  }, 20000);
+
+  // 이탈 순간 마지막 시청초 저장 (재생한 적 있을 때만)
+  function flush(){ if (playStarted) sendTrack('play', { watchedSec: watchedSec, beacon: true }); }
+  document.addEventListener('visibilitychange', function(){ if (document.visibilityState === 'hidden') flush(); });
+  window.addEventListener('pagehide', flush);
+
+  // ⑥ CTA 클릭 → click 기록 후 3차(consult)로 이동
   document.getElementById('vslCta').addEventListener('click', function(){
-    track('클릭', { reason:'cta', watchSec:watchSec });
+    sendTrack('click', { watchedSec: watchedSec, beacon: true });
   });
 
-  // ③ 카운트다운 + ⑥ 잠금 해제
-  var remain = FALLBACK_SECONDS;
+  // ③ 카운트다운 (타이머로도 열리는 안전장치)
+  var remain = UNLOCK_SECONDS;
   var timer = document.getElementById('vslTimer');
   var countEl = document.getElementById('vslCount');
 
@@ -289,20 +317,26 @@
     if (s >= 60){ var m = Math.floor(s/60), r = s%60; return m + '분 ' + (r<10?'0'+r:r) + '초'; }
     return s + '초';
   }
-  function renderCount(){ countEl.textContent = fmt(remain); }
+  function renderCount(){ countEl.textContent = fmt(Math.max(remain, 0)); }
   renderCount();
 
   var iv = setInterval(function(){
     remain--;
-    if (remain <= 0){ clearInterval(iv); unlock(); }
-    else renderCount();
+    if (remain <= 0){
+      clearInterval(iv);
+      unlock(playStarted ? 'timer' : 'timer(무재생)');   // 재생 여부로 사유 구분
+    } else renderCount();
   }, 1000);
 
-  function unlock(){
-    // 타이머 문구 변경
+  // ⑥ 잠금 해제 : reason = watch(실제 시청 도달) | timer | timer(무재생)
+  function unlock(reason){
+    if (unlocked) return;
+    unlocked = true;
+    clearInterval(iv);
+
     timer.classList.add('opened');
     timer.innerHTML = '🎉 신청 버튼이 열렸습니다!';
-    // 잠금 스텝 🔒 → ✓
+
     var dot = document.getElementById('wjLockDot');
     var label = document.getElementById('wjLockLabel');
     dot.className = 'wj-dot done'; dot.textContent = '✓';
@@ -310,14 +344,14 @@
     document.getElementById('wjLine1').classList.remove('is-active');
     document.getElementById('wjLine2').classList.add('is-active');
     document.getElementById('wjTop').textContent = '지금 신청 가능합니다';
-    // CTA 노출 (토큰 달아서 3차로 연결)
+
     document.getElementById('ctaLocked').style.display = 'none';
     var cta = document.getElementById('vslCta');
-    cta.href = '/consult' + (TID ? '?t=' + encodeURIComponent(TID) : '');
+    cta.href = '/consult' + (TOKEN ? '?t=' + encodeURIComponent(TOKEN) : '');
     cta.style.display = 'block';
-    // '도달' 단계 기록 (해제사유 + 시청초)
-    var reason = !playLogged ? 'timer(무재생)' : (reachFired ? '완주' : 'timer(재생중)');
-    track('도달', { reason: reason, watchSec: playLogged ? watchSec : '' });
+
+    sendOnce('reach', { watchedSec: watchedSec, unlockReason: reason });
+    if (window.fbq) fbq('trackCustom','VideoUnlocked',{reason: reason});   // 완주자 구분용
   }
 </script>
 </body>

@@ -102,6 +102,23 @@
 <script>
   var form=document.getElementById('optin'), agree=document.getElementById('agree'),
       btn=document.getElementById('submitBtn'), terms=document.getElementById('terms');
+
+  /* 유입 경로 파악
+     ① 링크 꼬리표 우선  : /?utm=cafe  또는 /?utm_source=facebook
+     ② 없으면 자동 감지  : 눌러서 들어온 사이트 도메인 (facebook.com 등)
+     ③ 그것도 없으면     : direct (주소 직접입력·북마크·앱 내 브라우저) */
+  function getUtm(){
+    try{
+      var q=new URLSearchParams(location.search);
+      var tag=q.get('utm')||q.get('utm_source')||q.get('src');
+      if(tag) return tag.slice(0,60);
+      if(document.referrer){
+        var h=new URL(document.referrer).hostname.replace(/^www\./,'');
+        if(h && h!==location.hostname) return h.slice(0,60);
+      }
+    }catch(e){}
+    return 'direct';
+  }
   agree.addEventListener('change',function(){btn.disabled=!agree.checked;});
   document.getElementById('termsToggle').addEventListener('click',function(){terms.classList.toggle('open');});
   form.phone.addEventListener('input',function(e){
@@ -118,45 +135,45 @@
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){alert('이메일 주소를 정확히 입력해 주세요.');form.email.focus();return;}
     if(!agree.checked){alert('개인정보 수집·이용에 동의해 주세요.');return;}
 
-    // 리드 식별 토큰 발급 + 저장 (퍼널 전체에서 같은 사람으로 추적)
-    var TID=(function(){var c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',s='';for(var i=0;i<11;i++)s+=c.charAt(Math.floor(Math.random()*c.length));return s;})();
-    try{ localStorage.setItem('scLead', JSON.stringify({tid:TID,name:name,phone:phone,email:email})); }catch(e){}
     if(window.fbq) fbq('track','Lead');   // 메타 픽셀: 리드 전환
-
-    // ── 스티비(Stibee) 주소록으로 전송 ──
-    var STIBEE_ENDPOINT='https://stibee.com/api/v1.0/lists/xaS0ekIoukh2lSJZ5BQAuS59LAWE8g==/public/subscribers';
     btn.disabled=true; btn.textContent='전송 중...';
+
+    // ── 스티비(Stibee) 주소록 (비차단) ──
+    var STIBEE_ENDPOINT='https://stibee.com/api/v1.0/lists/xaS0ekIoukh2lSJZ5BQAuS59LAWE8g==/public/subscribers';
     var payload=new URLSearchParams();
     payload.append('email',email); payload.append('name',name); payload.append('phone',phone);
     fetch(STIBEE_ENDPOINT,{method:'POST',mode:'no-cors',keepalive:true,
       headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
       body:payload.toString()
-    }).then(goNext).catch(function(err){console.error('Stibee 전송 오류:',err);goNext();});
+    }).catch(function(err){console.warn('Stibee 오류:',err);});
 
-    // ── DirectSend 확인문자 발송 (서버리스 /api/confirm-sms 경유) ──
-    // 실패해도 신청 자체는 유효하므로 비차단(best-effort)으로 처리합니다.
+    // ── 확인문자 (비차단) ──
     fetch('/api/confirm-sms',{method:'POST',keepalive:true,
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({name:name,phone:phone})
     }).then(function(r){return r.json();})
       .then(function(d){if(!d.ok)console.warn('확인문자 미발송:',d);})
-      .catch(function(e){console.warn('확인문자 요청 오류:',e);});
+      .catch(function(e){console.warn('확인문자 오류:',e);});
 
-    // ── 구글시트 자동 리스트업 (서버리스 /api/save-lead 경유) ──
-    fetch('/api/save-lead',{method:'POST',keepalive:true,
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({tid:TID,name:name,phone:phone,email:email,source:'optin-1'})
-    }).then(function(r){return r.json();})
-      .then(function(d){if(!d.ok)console.warn('시트 저장 실패:',d);})
-      .catch(function(e){console.warn('시트 요청 오류:',e);});
-
-    setTimeout(goNext, 1200);   // 응답이 늦어도 최대 1.2초 후 2차로 이동
-
+    // ── 옵트인 접수: 서버가 토큰 발급 + 시트 기록 ──
     var moved=false;
-    function goNext(){
-      if(moved) return; moved=true;      // 중복 이동 방지
-      window.location.href='/watch?t='+encodeURIComponent(TID);   // 토큰 달고 2차 영상으로
+    function goNext(token){
+      if(moved) return; moved=true;
+      try{ localStorage.setItem('scLead', JSON.stringify({tid:token||'',name:name,phone:phone,email:email})); }catch(e){}
+      window.location.href = token ? ('/watch?t='+encodeURIComponent(token)) : '/watch';
     }
+
+    fetch('/api/optin',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:name,phone:phone,email:email,utm:getUtm()})
+    }).then(function(r){return r.json();})
+      .then(function(d){
+        if(!d.ok){ console.warn('옵트인 실패:',d); alert(d.error||'잠시 후 다시 시도해 주세요.');
+                   btn.disabled=false; btn.textContent='무료특강 영상 보기'; moved=true; return; }
+        goNext(d.token);
+      })
+      .catch(function(e){ console.warn('옵트인 오류:',e); goNext(''); });   // 실패해도 화면은 진행
+
+    setTimeout(function(){ goNext(''); }, 6000);   // 응답이 없어도 6초 뒤 진행
   });
 </script>
 </body>
