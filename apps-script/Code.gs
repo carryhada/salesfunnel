@@ -78,8 +78,15 @@ function doPost(e) {
     if (given !== expected) return _json({ ok: false, error: 'unauthorized' });
 
     var action = String(body.action || '').trim();
-    if (action !== 'optin' && action !== 'track' && action !== 'mark') {
+    if (['optin', 'track', 'mark', 'segments'].indexOf(action) === -1) {
       return _json({ ok: false, error: 'unknown_action', action: action });
+    }
+
+    /* 발송 대상 조회 : { action:'segments', secret, type:'A'|'B'|'C', minHours? } */
+    if (action === 'segments') {
+      if (!lock.tryLock(15000)) return _json({ ok: false, error: 'busy_lock_timeout' });
+      return _json(_segments(String(body.type || '').toUpperCase(),
+                             body.minHours === undefined ? 6 : Number(body.minHours)));
     }
 
     if (!lock.tryLock(15000)) return _json({ ok: false, error: 'busy_lock_timeout' });
@@ -373,6 +380,62 @@ function _upsertPaid(mainSh, map, row, body) {
     SpreadsheetApp.newDataValidation().requireCheckbox().build()
   );
   return true;
+}
+
+/**
+ * 발송 대상 조회
+ *   A 미시청     : 단계=옵트인 또는 시청초<30
+ *   B 중도이탈   : 단계=재생 (도달 못 함)
+ *   C 도달·미신청: 단계=도달 또는 클릭
+ *   공통 제외    : 단계=신청(전환자) / 이미 발송(체크박스 or 상태) / 옵트인 후 minHours 미경과
+ */
+function _segments(type, minHours) {
+  if (['A', 'B', 'C'].indexOf(type) === -1) return { ok: false, error: 'bad_type', type: type };
+  if (!isFinite(minHours) || minHours < 0) minHours = 6;
+
+  var sh = _sheet(), map = _headerMap(sh);
+  var last = sh.getLastRow();
+  var res = { ok: true, type: type, count: 0, targets: [], skipped: { converted: 0, sent: 0, fresh: 0 } };
+  if (last < 2) return res;
+
+  var rows = sh.getRange(2, 1, last - 1, sh.getLastColumn()).getValues();
+  var now = new Date().getTime();
+  var LABEL = { A: 'remind_optin_sent', B: 'remind_partial_sent', C: 'remind_ready_sent' }[type];
+  var BOX   = { A: 'smsA', B: 'smsB', C: 'smsC' }[type];
+
+  for (var i = 0; i < rows.length; i++) {
+    var r = rows[i];
+    var phone = _phone(map.phone ? r[map.phone - 1] : '');
+    if (phone.length < 10) continue;
+
+    var stage   = String(map.stage ? r[map.stage - 1] : '');
+    var watched = Number(map.watchedSec ? r[map.watchedSec - 1] : 0) || 0;
+    var status  = String(map.status ? r[map.status - 1] : '');
+
+    if (stage === '신청') { res.skipped.converted++; continue; }
+
+    var ts = map.ts ? r[map.ts - 1] : '';
+    var tms = (ts instanceof Date) ? ts.getTime() : new Date(String(ts).replace(/-/g, '/')).getTime();
+    if (tms && !isNaN(tms) && (now - tms) < minHours * 3600000) { res.skipped.fresh++; continue; }
+
+    var g = '';
+    if (stage === '옵트인' || watched < 30) g = 'A';
+    else if (stage === '재생') g = 'B';
+    else if (stage === '도달' || stage === '클릭') g = 'C';
+    if (g !== type) continue;
+
+    var checked = (map[BOX] && r[map[BOX] - 1] === true);
+    if (checked || status.indexOf(LABEL) !== -1) { res.skipped.sent++; continue; }
+
+    res.targets.push({
+      row: i + 2,
+      token: String(map.token ? r[map.token - 1] : ''),
+      name: String(map.name ? r[map.name - 1] : ''),
+      phone: phone
+    });
+  }
+  res.count = res.targets.length;
+  return res;
 }
 
 function _put(arr, col, val) { if (col) arr[col - 1] = val; }
