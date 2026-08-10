@@ -83,9 +83,17 @@ module.exports = async function handler(req, res) {
   const watchUrl = `https://${req.headers.host}/watch`;
   const greet = name ? `${name}님, ` : '';
   const text = type === 'booking'
-    ? `[캐리퀸] ${greet}1:1 상담 예약·접수가 완료되었습니다!\n` +
-      `예약하신 시간에 만나뵙겠습니다. 준비사항은 순차 안내드릴게요.\n` +
-      `문의사항은 이 문자에 회신 주세요.`
+    ? `[캐리퀸] 1:1 상담컨설팅 접수 안내\n\n` +
+      `${greet}1:1 상담컨설팅 신청이 정상 접수되었습니다.\n\n` +
+      `예약하신 시간에 맞춰 준비해두겠습니다.\n` +
+      `아래 참가비 입금이 확인되면 접수가 최종 완료됩니다.\n\n` +
+      `▪ 참가비 50,000원\n` +
+      `▪ 카카오뱅크 3333-37-5666643\n` +
+      `▪ 예금주 똑똑한마케팅\n\n` +
+      `※ 입금자명은 예약자 성함과 동일하게 입력해주세요.\n` +
+      `※ 카드로 결제하셨다면 별도 입금은 필요 없습니다.\n` +
+      `※ 참가비는 정규 프로그램 등록 시 전액 차감됩니다.\n\n` +
+      `문의: https://open.kakao.com/o/saXotGIh`
     : `[캐리퀸] ${greet}무료특강 신청이 완료되었습니다!\n` +
       `아래 링크에서 지금 바로 영상을 시청하세요 ▶\n` +
       `${watchUrl}`;
@@ -96,7 +104,7 @@ module.exports = async function handler(req, res) {
     text: text,
     type: byteLen(text) > 90 ? 'LMS' : 'SMS'
   };
-  if (message.type === 'LMS') message.subject = type === 'booking' ? '상담 예약 접수 완료' : '무료특강 신청 완료';
+  if (message.type === 'LMS') message.subject = type === 'booking' ? '1:1 상담컨설팅 접수 안내' : '무료특강 신청 완료';
 
   try {
     const r = await fetch(SOLAPI_ENDPOINT, {
