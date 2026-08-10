@@ -5,7 +5,7 @@
   "redirects": [
     { "source": "/1", "destination": "/", "permanent": false },
     { "source": "/2", "destination": "/watch", "permanent": false },
-    { "source": "/3", "destination": "/offer", "permanent": false },
+    { "source": "/3", "destination": "/consult", "permanent": false },
     { "source": "/4", "destination": "/apply", "permanent": false }
   ],
   "headers": [
