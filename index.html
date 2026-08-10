@@ -127,6 +127,15 @@
       body:payload.toString()
     }).then(showSuccess).catch(function(err){console.error('Stibee 전송 오류:',err);showSuccess();});
 
+    // ── DirectSend 확인문자 발송 (서버리스 /api/confirm-sms 경유) ──
+    // 실패해도 신청 자체는 유효하므로 비차단(best-effort)으로 처리합니다.
+    fetch('/api/confirm-sms',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name:name,phone:phone})
+    }).then(function(r){return r.json();})
+      .then(function(d){if(!d.ok)console.warn('확인문자 미발송:',d);})
+      .catch(function(e){console.warn('확인문자 요청 오류:',e);});
+
     function showSuccess(){
       form.style.display='none';
       var s=document.getElementById('success');

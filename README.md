@@ -34,6 +34,23 @@
 - **무료특강 영상 삽입**: `watch/index.html`의 `<div class="video-box">` 안 iframe 주석 해제 후 유튜브 `VIDEO_ID` 입력.
 - **사업자 정보**: 각 페이지 `<footer>`의 상호/사업자등록번호/주소/연락처 및 `privacy.html` 채우기.
 
+## 확인문자 자동발송 (DirectSend)
+1차 폼 제출 시 → 스티비 등록 + **확인문자(SMS/LMS) 자동발송**.
+문자는 브라우저에서 직접 못 보내므로(키 노출·요금 위험) **서버리스 함수 `api/confirm-sms.js`** 가 DirectSend를 호출합니다.
+
+Vercel → Project → Settings → **Environment Variables** 에 등록:
+| 변수 | 값 |
+|---|---|
+| `DIRECTSEND_USERNAME` | 다이렉트센드 로그인 ID |
+| `DIRECTSEND_KEY` | 다이렉트센드 API Key |
+| `DIRECTSEND_SENDER` | 사전등록한 발신번호(예: 01045114447) |
+| `CONFIRM_SMS_ALLOWED_ORIGINS`(선택) | 커스텀 도메인 콤마구분 |
+
+- 수신번호는 국가코드 없이 `0`으로 시작(자동 정규화됨).
+- DirectSend "허용 IP"는 **비워두기**(Vercel IP 유동). 보안은 서버 보관 API키로 유지.
+- 남용/요금폭탄 방지: DirectSend에서 **일일 발송/금액 한도**를 설정하세요.
+- 문자 문구 수정: `api/confirm-sms.js`의 `message` 변수.
+
 ## 로컬 미리보기
 ```bash
 python3 -m http.server 8080
