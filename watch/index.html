@@ -218,6 +218,22 @@
   var playerBox = document.getElementById('vslPlayer');
   var ytPlayer = null, apiReady = false, wantPlay = false, playLogged = false, reachFired = false, progIv = null;
 
+  // 영상 썸네일을 덮개 배경으로 표시 (재생 전)
+  (function(){
+    if (VIDEO_ID === 'YOUR_YOUTUBE_ID') return;
+    var maxres = 'https://img.youtube.com/vi/' + VIDEO_ID + '/maxresdefault.jpg';
+    var hq     = 'https://img.youtube.com/vi/' + VIDEO_ID + '/hqdefault.jpg';
+    function setCover(url){
+      cover.style.backgroundImage = "linear-gradient(rgba(10,8,6,.28), rgba(10,8,6,.5)), url('" + url + "')";
+      cover.style.backgroundSize = 'cover';
+      cover.style.backgroundPosition = 'center';
+    }
+    var probe = new Image();
+    probe.onload = function(){ setCover(probe.naturalWidth > 200 ? maxres : hq); };  // maxres 없으면 hq
+    probe.onerror = function(){ setCover(hq); };
+    probe.src = maxres;
+  })();
+
   var tag = document.createElement('script');
   tag.src = 'https://www.youtube.com/iframe_api';
   document.head.appendChild(tag);
