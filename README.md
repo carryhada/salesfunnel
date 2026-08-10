@@ -78,6 +78,14 @@ Vercel 환경변수:
 - 추가 환경변수 불필요(save-lead의 `GOOGLE_SHEET_WEBHOOK_URL`·`GOOGLE_SHEET_TOKEN` 재사용).
 - ⚠️ Code.gs를 갱신했으므로 Apps Script를 **"새 버전"으로 재배포**해야 시청추적 탭이 동작합니다.
 
+## 2차 문자 자동 회수 (이탈자 리마케팅)
+`apps-script/Remind.gs` 를 구글시트 Apps Script에 **새 파일로 추가**하면, 이벤트 로그(시트1)를
+사람(휴대폰)별로 집계해 3그룹으로 분류하고 그룹별 2차 문자를 Solapi로 발송합니다.
+- 미시청(신청O·재생X) → /watch 재안내 · 중도이탈(재생O·도달X) → /watch 이어보기 · 도달·미신청(도달O·클릭X) → /consult 유도
+- 결과는 `대상관리` 탭에 사람별 상태·발송이력으로 정리(중복발송 방지)
+- 크리덴셜은 Apps Script **스크립트 속성**(SOLAPI_KEY/SECRET/SENDER)에 저장(코드 미노출)
+- 상단 메뉴 "2차문자 자동화"로 수동 실행, 또는 dailyRun()을 시간 트리거에 연결해 자동화
+
 ## 로컬 미리보기
 ```bash
 python3 -m http.server 8080
