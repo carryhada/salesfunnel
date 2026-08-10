@@ -117,8 +117,9 @@
     if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){alert('이메일 주소를 정확히 입력해 주세요.');form.email.focus();return;}
     if(!agree.checked){alert('개인정보 수집·이용에 동의해 주세요.');return;}
 
-    // 2단계 시청추적에서 "누가 봤는지" 식별하기 위해 방문자 정보 저장
-    try{ localStorage.setItem('scLead', JSON.stringify({name:name,phone:phone,email:email})); }catch(e){}
+    // 리드 식별 토큰 발급 + 저장 (퍼널 전체에서 같은 사람으로 추적)
+    var TID=(function(){var c='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',s='';for(var i=0;i<11;i++)s+=c.charAt(Math.floor(Math.random()*c.length));return s;})();
+    try{ localStorage.setItem('scLead', JSON.stringify({tid:TID,name:name,phone:phone,email:email})); }catch(e){}
 
     // ── 스티비(Stibee) 주소록으로 전송 ──
     var STIBEE_ENDPOINT='https://stibee.com/api/v1.0/lists/xaS0ekIoukh2lSJZ5BQAuS59LAWE8g==/public/subscribers';
@@ -142,7 +143,7 @@
     // ── 구글시트 자동 리스트업 (서버리스 /api/save-lead 경유) ──
     fetch('/api/save-lead',{method:'POST',keepalive:true,
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name:name,phone:phone,email:email,source:'optin-1'})
+      body:JSON.stringify({tid:TID,name:name,phone:phone,email:email,source:'optin-1'})
     }).then(function(r){return r.json();})
       .then(function(d){if(!d.ok)console.warn('시트 저장 실패:',d);})
       .catch(function(e){console.warn('시트 요청 오류:',e);});
@@ -152,7 +153,7 @@
     var moved=false;
     function goNext(){
       if(moved) return; moved=true;      // 중복 이동 방지
-      window.location.href='/watch';     // 신청 즉시 2차 영상으로 이동
+      window.location.href='/watch?t='+encodeURIComponent(TID);   // 토큰 달고 2차 영상으로
     }
   });
 </script>

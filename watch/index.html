@@ -196,19 +196,20 @@
   var VIDEO_ID = 'Cc7eM5fo8E4';       // 무료특강 유튜브 영상 ID
   var FALLBACK_SECONDS = 15;          // 15초 후 신청 버튼 오픈
 
-  // ===== 방문자(리드) 식별 : 1단계에서 저장한 값 =====
+  // ===== 방문자(리드) 식별 : 토큰(URL ?t 우선, 없으면 localStorage) =====
   var LEAD = (function(){ try{ return JSON.parse(localStorage.getItem('scLead')||'{}'); }catch(e){ return {}; } })();
+  var TID = (new URLSearchParams(location.search)).get('t') || LEAD.tid || '';
 
-  // ===== 시청 추적 → /api/track → 구글시트(시청추적 탭). 이벤트별 1회만 =====
-  function track(event){
-    var key = 'sc_trk_' + event + '_' + (LEAD.phone || 'anon');
-    if (localStorage.getItem(key)) return;      // 새로고침 중복 방지
-    localStorage.setItem(key, '1');
+  // ===== 단계 기록 → /api/track → 구글시트(토큰으로 같은 행 업데이트) =====
+  function track(stage, extra){
+    extra = extra || {};
     try{
       fetch('/api/track', {
         method:'POST', keepalive:true,          // 페이지 이동해도 전송 보장
         headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ event:event, name:LEAD.name||'', phone:LEAD.phone||'', email:LEAD.email||'' })
+        body: JSON.stringify({ tid:TID, stage:stage, reason:(extra.reason||''),
+          watchSec:(extra.watchSec==null?'':extra.watchSec),
+          name:LEAD.name||'', phone:LEAD.phone||'', email:LEAD.email||'' })
       }).catch(function(){});
     }catch(e){}
   }
@@ -216,7 +217,7 @@
   // ② 영상 : 유튜브 IFrame API로 재생 + 85% 도달 추적
   var cover = document.getElementById('vslCover');
   var playerBox = document.getElementById('vslPlayer');
-  var ytPlayer = null, apiReady = false, wantPlay = false, playLogged = false, reachFired = false, progIv = null;
+  var ytPlayer = null, apiReady = false, wantPlay = false, playLogged = false, reachFired = false, progIv = null, watchSec = 0;
 
   // 영상 썸네일을 덮개 배경으로 표시 (재생 전)
   (function(){
@@ -265,17 +266,18 @@
   function startProgress(){
     if (progIv) return;
     progIv = setInterval(function(){
-      if (!ytPlayer || !ytPlayer.getDuration) return;
-      var d = ytPlayer.getDuration(), t = ytPlayer.getCurrentTime();
-      if (d > 0 && (t / d) >= 0.85 && !reachFired){                 // 🎯 85% 도달 기록
-        reachFired = true; track('도달');
-        clearInterval(progIv); progIv = null;
-      }
-    }, 2000);
+      if (!ytPlayer || !ytPlayer.getCurrentTime) return;
+      var d = ytPlayer.getDuration ? ytPlayer.getDuration() : 0;
+      var t = ytPlayer.getCurrentTime();
+      if (t > watchSec) watchSec = Math.round(t);          // 시청초 누적(최대치)
+      if (d > 0 && (t / d) >= 0.85) reachFired = true;      // 85% 시청 여부(해제사유용)
+    }, 1000);
   }
 
-  // ⑥ CTA 클릭 기록 (offer로 이동 전 비콘 전송)
-  document.getElementById('vslCta').addEventListener('click', function(){ track('클릭'); });
+  // ⑥ CTA 클릭 기록 (consult로 이동 전 비콘 전송)
+  document.getElementById('vslCta').addEventListener('click', function(){
+    track('클릭', { reason:'cta', watchSec:watchSec });
+  });
 
   // ③ 카운트다운 + ⑥ 잠금 해제
   var remain = FALLBACK_SECONDS;
@@ -307,9 +309,14 @@
     document.getElementById('wjLine1').classList.remove('is-active');
     document.getElementById('wjLine2').classList.add('is-active');
     document.getElementById('wjTop').textContent = '지금 신청 가능합니다';
-    // CTA 노출
+    // CTA 노출 (토큰 달아서 3차로 연결)
     document.getElementById('ctaLocked').style.display = 'none';
-    document.getElementById('vslCta').style.display = 'block';
+    var cta = document.getElementById('vslCta');
+    cta.href = '/consult' + (TID ? '?t=' + encodeURIComponent(TID) : '');
+    cta.style.display = 'block';
+    // '도달' 단계 기록 (해제사유 + 시청초)
+    var reason = !playLogged ? 'timer(무재생)' : (reachFired ? '완주' : 'timer(재생중)');
+    track('도달', { reason: reason, watchSec: playLogged ? watchSec : '' });
   }
 </script>
 </body>

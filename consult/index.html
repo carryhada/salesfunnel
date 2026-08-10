@@ -160,5 +160,16 @@
     <div class="links"><a href="/privacy">개인정보처리방침</a> · <a href="/">처음으로</a></div>
     <p class="disc">본 페이지에 소개된 성과는 개인의 사례이며, 모든 참여자의 결과를 보장하지 않습니다.</p>
   </footer>
+
+<script>
+  // 토큰(?t)을 4차 신청 링크로 그대로 전달
+  (function(){
+    var t=(new URLSearchParams(location.search)).get('t');
+    if(!t) return;
+    document.querySelectorAll('a[href^="/apply"]').forEach(function(a){
+      a.href += (a.href.indexOf('?')>=0?'&':'?')+'t='+encodeURIComponent(t);
+    });
+  })();
+</script>
 </body>
 </html>

@@ -190,6 +190,7 @@
 
     // 완료 확인 링크 → 예약완료 확인문자 발송 + 시트기록 후 /done 이동
     var lead = (function(){ try{ return JSON.parse(localStorage.getItem('scLead')||'{}'); }catch(e){ return {}; } })();
+    var TID = (new URLSearchParams(location.search)).get('t') || lead.tid || '';
     function completeAndGo(e){
       e.preventDefault();
       var phone = lead.phone || '';
@@ -201,7 +202,7 @@
             body: JSON.stringify({ type:'booking', name:lead.name||'', phone:phone }) }); }catch(_){}
         }
         try{ fetch('/api/track', {method:'POST', keepalive:true, headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ event:'예약완료', name:lead.name||'', phone:phone, email:lead.email||'' }) }); }catch(_){}
+          body: JSON.stringify({ tid:TID, stage:'예약완료', name:lead.name||'', phone:phone, email:lead.email||'' }) }); }catch(_){}
       }
       window.location.href = C.doneUrl;
     }

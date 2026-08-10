@@ -9,7 +9,7 @@
 //    (선택) CONFIRM_SMS_ALLOWED_ORIGINS
 // ============================================================
 
-var ALLOWED_EVENTS = ['재생', '도달', '클릭', '예약완료'];
+var ALLOWED_STAGES = ['재생', '도달', '클릭', '예약완료'];
 
 function normalizePhone(raw) {
   var d = String(raw || '').replace(/\D/g, '');
@@ -38,22 +38,29 @@ module.exports = async function handler(req, res) {
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
   body = body || {};
 
-  var event = String(body.event || '').trim();
-  if (ALLOWED_EVENTS.indexOf(event) === -1) {
-    res.status(400).json({ ok: false, error: '허용되지 않은 이벤트' });
+  var stage = String(body.stage || '').trim();
+  if (ALLOWED_STAGES.indexOf(stage) === -1) {
+    res.status(400).json({ ok: false, error: '허용되지 않은 단계' });
     return;
   }
 
   var url = process.env.GOOGLE_SHEET_WEBHOOK_URL;
   if (!url) { console.error('GOOGLE_SHEET_WEBHOOK_URL 미설정'); res.status(500).json({ ok: false, error: '시트 설정 누락' }); return; }
 
+  var wsec = '';
+  if (body.watchSec !== undefined && body.watchSec !== null && body.watchSec !== '') {
+    wsec = Math.max(0, Math.round(Number(body.watchSec) || 0));
+  }
+
   var payload = {
-    kind: 'track',
-    event: event,
+    tid: String(body.tid || '').trim().slice(0, 40),   // 리드 식별 토큰
+    stage: stage,
+    reason: String(body.reason || '').trim().slice(0, 40),
+    watchSec: wsec,
     name: String(body.name || '').trim().slice(0, 40),
     phone: normalizePhone(body.phone),
     email: String(body.email || '').trim().slice(0, 100),
-    token: process.env.GOOGLE_SHEET_TOKEN || ''
+    token: process.env.GOOGLE_SHEET_TOKEN || ''         // 인증용 시크릿
   };
 
   try {

@@ -44,11 +44,13 @@ module.exports = async function handler(req, res) {
   body = body || {};
 
   const lead = {
+    tid: String(body.tid || '').trim().slice(0, 40),   // 리드 식별 토큰
+    stage: '신청',
     name: String(body.name || '').trim().slice(0, 40),
     phone: normalizePhone(body.phone),
     email: String(body.email || '').trim().slice(0, 100),
     source: String(body.source || 'optin-1').trim().slice(0, 40),
-    token: process.env.GOOGLE_SHEET_TOKEN || ''
+    token: process.env.GOOGLE_SHEET_TOKEN || ''        // 인증용 시크릿
   };
 
   const url = process.env.GOOGLE_SHEET_WEBHOOK_URL;
