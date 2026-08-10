@@ -30,7 +30,7 @@ var SHEET_NAME = '';   // 비우면 첫 번째 시트 사용
 
 /* 헤더명 → 표준 키 (별칭 허용: 옛 시트/오타 대응) */
 var HEADER_ALIASES = {
-  '시각': 'ts', '최초시각': 'ts', '옵트인시각': 'ts',
+  '시각': 'ts', '최초시각': 'ts', '옵트인시각': 'ts', '일시': 'ts', '등록일시': 'ts',
   '이름': 'name', '성함': 'name',
   '전화': 'phone', '휴대폰': 'phone', '연락처': 'phone',
   '이메일': 'email',
@@ -112,16 +112,51 @@ function doPost(e) {
   }
 }
 
-/* GET은 헬스체크용 (브라우저로 열어 배포 확인) */
-function doGet() {
-  return _json({ ok: true, service: 'funnel-tracker', ts: _now() });
+/**
+ * GET = 헬스체크 / 진단
+ *   그냥 열면      : 배포 확인
+ *   ?debug=1 붙이면: 시트 탭 목록 + 각 탭의 1행 헤더 + 인식된 열 매핑
+ *                    (어느 탭을 쓰는지, 헤더를 못 읽는지 바로 확인 가능)
+ */
+function doGet(e) {
+  var debug = e && e.parameter && e.parameter.debug;
+  if (!debug) return _json({ ok: true, service: 'funnel-tracker', ts: _now() });
+
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var target = _sheet();
+  var tabs = ss.getSheets().map(function (sh) {
+    var lastCol = Math.max(sh.getLastColumn(), 1);
+    var head = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (v) { return String(v || ''); });
+    return { name: sh.getName(), rows: sh.getLastRow(), headers: head, mapped: _headerMap(sh) };
+  });
+  return _json({
+    ok: true, ts: _now(),
+    usingSheet: target ? target.getName() : null,
+    secretSet: !!PropertiesService.getScriptProperties().getProperty('SHEETS_SECRET'),
+    tabs: tabs
+  });
 }
 
 /* ── 내부 ─────────────────────────────────────────────────────────────────── */
 
+/**
+ * 대상 시트 찾기
+ *  1) SHEET_NAME이 지정돼 있으면 그 시트
+ *  2) 아니면 1행에 "토큰" 헤더가 있는 시트를 자동 탐색 (탭 순서/이름 무관)
+ *  3) 그래도 없으면 첫 번째 시트
+ */
 function _sheet() {
   var ss = SpreadsheetApp.getActiveSpreadsheet();
-  return SHEET_NAME ? ss.getSheetByName(SHEET_NAME) : ss.getSheets()[0];
+  if (SHEET_NAME) {
+    var named = ss.getSheetByName(SHEET_NAME);
+    if (named) return named;
+  }
+  var all = ss.getSheets();
+  for (var i = 0; i < all.length; i++) {
+    var m = _headerMap(all[i]);
+    if (m.token) return all[i];
+  }
+  return all[0];
 }
 
 /** 1행 헤더명 → {key: columnIndex(1-based)} */
