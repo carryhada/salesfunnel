@@ -1,85 +1,104 @@
-// ============================================================
-//  /api/track  —  2단계 영상 시청추적 → 구글시트 "시청추적" 탭
-//  이벤트: 재생 / 도달(85%) / 클릭
-//  save-lead 와 동일한 Apps Script 웹앱(GOOGLE_SHEET_WEBHOOK_URL)으로 보내되
-//  kind:'track' 플래그로 Apps Script가 "시청추적" 시트에 기록하도록 합니다.
+// ============================================================================
+//  POST /api/track  — 시청/행동 이벤트 중계
+//  입력 : { token, event, watchedSec, unlockReason, payMethod }
+//         event = play | reach | click | apply
+//  · Apps Script(action:track)로 전달, 실패 시 1회 재시도
+//  · 실패해도 사용자 화면은 절대 막지 않는다 (항상 200 응답)
+//  · sendBeacon(text/plain)으로 와도 파싱됨
 //
-//  필요한 Vercel 환경변수 (이미 save-lead에서 사용 중 — 추가 설정 불필요):
-//    GOOGLE_SHEET_WEBHOOK_URL, GOOGLE_SHEET_TOKEN
-//    (선택) CONFIRM_SMS_ALLOWED_ORIGINS
-// ============================================================
+//  Vercel 환경변수 (둘 중 아무 이름이나 인식)
+//    SHEETS_WEBHOOK_URL  또는  GOOGLE_SHEET_WEBHOOK_URL
+//    SHEETS_SECRET       또는  GOOGLE_SHEET_TOKEN
+// ============================================================================
 
-var ALLOWED_STAGES = ['재생', '도달', '클릭', '예약완료'];
+const WEBHOOK = () => process.env.SHEETS_WEBHOOK_URL || process.env.GOOGLE_SHEET_WEBHOOK_URL || '';
+const SECRET  = () => process.env.SHEETS_SECRET      || process.env.GOOGLE_SHEET_TOKEN       || '';
 
-function normalizePhone(raw) {
-  var d = String(raw || '').replace(/\D/g, '');
-  if (d.indexOf('82') === 0) d = '0' + d.slice(2);
-  if (d && d[0] !== '0') d = '0' + d;
-  return d;
-}
+const ALLOWED_EVENTS = ['play', 'reach', 'click', 'apply'];
 
 function isAllowedOrigin(req) {
-  var host = req.headers.host || '';
-  var originHeader = req.headers.origin || req.headers.referer || '';
-  var originHost = '';
-  try { originHost = originHeader ? new URL(originHeader).host : ''; } catch (e) {}
-  if (!originHost) return true;
-  if (originHost === host) return true;
-  var allow = (process.env.CONFIRM_SMS_ALLOWED_ORIGINS || '')
-    .split(',').map(function (s) { return s.trim(); }).filter(Boolean);
-  return allow.some(function (a) { return originHost === a || originHost.slice(-(a.length + 1)) === '.' + a; });
+  const host = req.headers.host || '';
+  const o = req.headers.origin || req.headers.referer || '';
+  let oh = '';
+  try { oh = o ? new URL(o).host : ''; } catch (e) {}
+  if (!oh || oh === host) return true;
+  const allow = (process.env.CONFIRM_SMS_ALLOWED_ORIGINS || '')
+    .split(',').map(s => s.trim()).filter(Boolean);
+  return allow.some(a => oh === a || oh.endsWith('.' + a));
+}
+
+/* 쿠키에서 토큰 꺼내기 (body에 token이 없을 때 대비) */
+function tokenFromCookie(req) {
+  const raw = req.headers.cookie || '';
+  const m = raw.match(/(?:^|;\s*)sc_t=([^;]+)/);
+  return m ? decodeURIComponent(m[1]) : '';
+}
+
+async function postToSheets(payload) {
+  const url = WEBHOOK();
+  if (!url) return { ok: false, error: 'webhook_not_set' };
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const r = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        redirect: 'follow'
+      });
+      const text = await r.text();
+      let data; try { data = JSON.parse(text); } catch (e) { data = null; }
+      if (r.ok && data && data.ok) return { ok: true, data };
+      if (attempt === 1) {
+        console.error('track 응답 이상:', r.status, text.slice(0, 300));
+        return { ok: false, error: (data && data.error) || 'sheets_bad_response' };
+      }
+    } catch (err) {
+      if (attempt === 1) {
+        console.error('track 호출 실패:', err);
+        return { ok: false, error: 'sheets_fetch_failed' };
+      }
+    }
+    await new Promise(res => setTimeout(res, 400));
+  }
+  return { ok: false, error: 'unknown' };
 }
 
 module.exports = async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ ok: false, error: 'Method Not Allowed' }); return; }
   if (!isAllowedOrigin(req)) { res.status(403).json({ ok: false, error: 'Forbidden origin' }); return; }
 
-  var body = req.body;
+  // sendBeacon은 Content-Type이 text/plain → 문자열로 들어옴
+  let body = req.body;
+  if (Buffer.isBuffer(body)) body = body.toString('utf8');
   if (typeof body === 'string') { try { body = JSON.parse(body); } catch (e) { body = {}; } }
   body = body || {};
 
-  var stage = String(body.stage || '').trim();
-  if (ALLOWED_STAGES.indexOf(stage) === -1) {
-    res.status(400).json({ ok: false, error: '허용되지 않은 단계' });
-    return;
-  }
+  const token = String(body.token || '').trim() || tokenFromCookie(req);
+  const event = String(body.event || '').trim();
 
-  var url = process.env.GOOGLE_SHEET_WEBHOOK_URL;
-  if (!url) { console.error('GOOGLE_SHEET_WEBHOOK_URL 미설정'); res.status(500).json({ ok: false, error: '시트 설정 누락' }); return; }
+  // 검증 실패도 200으로 응답 (화면을 막지 않기 위해). 이유는 body에 담아 전달
+  if (!token) { res.status(200).json({ ok: false, error: 'token_required' }); return; }
+  if (ALLOWED_EVENTS.indexOf(event) === -1) { res.status(200).json({ ok: false, error: 'bad_event', event }); return; }
+  if (!SECRET()) { console.error('SHEETS_SECRET 미설정'); res.status(200).json({ ok: false, error: 'server_config' }); return; }
 
-  var wsec = '';
-  if (body.watchSec !== undefined && body.watchSec !== null && body.watchSec !== '') {
-    wsec = Math.max(0, Math.round(Number(body.watchSec) || 0));
-  }
+  let watchedSec = Number(body.watchedSec);
+  if (!isFinite(watchedSec) || watchedSec < 0) watchedSec = 0;
 
-  var payload = {
-    tid: String(body.tid || '').trim().slice(0, 40),   // 리드 식별 토큰
-    stage: stage,
-    reason: String(body.reason || '').trim().slice(0, 40),
-    watchSec: wsec,
-    name: String(body.name || '').trim().slice(0, 40),
-    phone: normalizePhone(body.phone),
-    email: String(body.email || '').trim().slice(0, 100),
-    token: process.env.GOOGLE_SHEET_TOKEN || ''         // 인증용 시크릿
-  };
+  const result = await postToSheets({
+    action: 'track',
+    secret: SECRET(),
+    token,
+    event,
+    watchedSec: Math.round(watchedSec),
+    unlockReason: String(body.unlockReason || '').slice(0, 40),
+    payMethod: String(body.payMethod || '').slice(0, 20)
+  });
 
-  try {
-    var r = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-      redirect: 'follow'
-    });
-    var text = await r.text();
-    var data; try { data = JSON.parse(text); } catch (e) { data = { raw: text }; }
-    if (!r.ok || (data && data.ok === false)) {
-      console.error('시청추적 저장 실패:', r.status, text);
-      res.status(502).json({ ok: false, error: '추적 저장 실패', detail: data });
-      return;
-    }
-    res.status(200).json({ ok: true });
-  } catch (err) {
-    console.error('시청추적 호출 오류:', err);
-    res.status(500).json({ ok: false, error: '추적 저장 중 오류' });
-  }
+  if (!result.ok) console.error('track 시트 기록 실패:', event, result.error);
+
+  // 항상 200 — 프론트는 이 응답을 기다리지 않고 진행해도 됨
+  res.status(200).json(result.ok
+    ? { ok: true, stage: result.data.stage, watchedSec: result.data.watchedSec, paid: result.data.paid }
+    : { ok: false, error: result.error });
 };
