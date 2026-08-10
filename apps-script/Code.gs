@@ -131,7 +131,7 @@ function doPost(e) {
     }
     var result = _applyTrack(sh, map, row, body);
     return _json({ ok: true, action: 'track', row: row, token: token,
-                   stage: result.stage, watchedSec: result.watchedSec });
+                   stage: result.stage, watchedSec: result.watchedSec, paid: result.paid });
 
   } catch (err) {
     Logger.log('doPost error: ' + err);
