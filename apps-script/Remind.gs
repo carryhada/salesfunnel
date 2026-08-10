@@ -35,6 +35,7 @@ var KEY_POINT = '7분';
 /* ── 메뉴 ────────────────────────────────────────────────────────────── */
 function onOpen() {
   SpreadsheetApp.getUi().createMenu('2차문자')
+    .addItem('⓪ 연결·잔액 확인', 'checkSolapi')
     .addItem('① 대상 미리보기', 'previewTargets')
     .addItem('② 테스트 발송(내 번호)', 'sendTestOnly')
     .addSeparator()
@@ -50,6 +51,47 @@ function sendA(){ runSend('A'); }
 function sendB(){ runSend('B'); }
 function sendC(){ runSend('C'); }
 function sendAll(){ ['A','B','C'].forEach(function(g){ runSend(g, true); }); _toast('전체 발송 완료'); }
+
+/**
+ * ⓪ 연결·잔액 확인 (권한 승인용으로도 사용)
+ *  · Apps Script 편집기에서 이 함수를 ▶실행하면 외부요청 권한 승인창이 뜹니다.
+ *    (문자 발송에 필요한 권한 — 한 번만 허용하면 이후 메뉴가 정상 동작)
+ *  · 승인 후에는 솔라피 API 연결 상태와 남은 잔액을 알려줍니다.
+ */
+function checkSolapi() {
+  var cfg = _solapi(); if (!cfg) return;
+  var out;
+  try {
+    var date = new Date().toISOString();
+    var salt = Utilities.getUuid().replace(/-/g, '') + Utilities.getUuid().replace(/-/g, '');
+    var sig = Utilities.computeHmacSha256Signature(date + salt, cfg.secret)
+      .map(function (b) { b = (b < 0 ? b + 256 : b); var s = b.toString(16); return s.length === 1 ? '0' + s : s; })
+      .join('');
+    var res = UrlFetchApp.fetch('https://api.solapi.com/cash/v1/balance', {
+      method: 'get',
+      headers: { Authorization: 'HMAC-SHA256 apiKey=' + cfg.key + ', date=' + date + ', salt=' + salt + ', signature=' + sig },
+      muteHttpExceptions: true
+    });
+    var code = res.getResponseCode(), body = res.getContentText();
+    Logger.log('balance ' + code + ' ' + body);
+    var d = null; try { d = JSON.parse(body); } catch (e) {}
+    if (code >= 200 && code < 300 && d) {
+      out = '✅ 솔라피 연결 정상\n\n' +
+            '잔액: ' + (d.balance != null ? Number(d.balance).toLocaleString() + '원' : '-') + '\n' +
+            '포인트: ' + (d.point != null ? Number(d.point).toLocaleString() : '-') + '\n' +
+            '발신번호: ' + cfg.sender + '\n\n' +
+            '이제 "② 테스트 발송"을 실행하세요.';
+    } else {
+      out = '❌ 솔라피 응답 오류 (HTTP ' + code + ')\n' + body.slice(0, 200);
+    }
+  } catch (e) {
+    out = '❌ 오류\n' + String(e).slice(0, 300) +
+          '\n\n※ 권한 오류라면: Apps Script 편집기에서 함수 checkSolapi 를 ▶실행 → 권한 허용';
+  }
+  Logger.log(out);
+  try { SpreadsheetApp.getUi().alert('솔라피 연결 확인', out, SpreadsheetApp.getUi().ButtonSet.OK); }
+  catch (e) { /* 편집기에서 실행한 경우 UI가 없으므로 로그로만 확인 */ }
+}
 
 /* ── ① 미리보기 ─────────────────────────────────────────────────────── */
 function previewTargets() {
