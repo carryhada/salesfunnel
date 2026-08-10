@@ -125,14 +125,14 @@
     btn.disabled=true; btn.textContent='전송 중...';
     var payload=new URLSearchParams();
     payload.append('email',email); payload.append('name',name); payload.append('phone',phone);
-    fetch(STIBEE_ENDPOINT,{method:'POST',mode:'no-cors',
+    fetch(STIBEE_ENDPOINT,{method:'POST',mode:'no-cors',keepalive:true,
       headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
       body:payload.toString()
-    }).then(showSuccess).catch(function(err){console.error('Stibee 전송 오류:',err);showSuccess();});
+    }).then(goNext).catch(function(err){console.error('Stibee 전송 오류:',err);goNext();});
 
     // ── DirectSend 확인문자 발송 (서버리스 /api/confirm-sms 경유) ──
     // 실패해도 신청 자체는 유효하므로 비차단(best-effort)으로 처리합니다.
-    fetch('/api/confirm-sms',{method:'POST',
+    fetch('/api/confirm-sms',{method:'POST',keepalive:true,
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({name:name,phone:phone})
     }).then(function(r){return r.json();})
@@ -140,18 +140,19 @@
       .catch(function(e){console.warn('확인문자 요청 오류:',e);});
 
     // ── 구글시트 자동 리스트업 (서버리스 /api/save-lead 경유) ──
-    fetch('/api/save-lead',{method:'POST',
+    fetch('/api/save-lead',{method:'POST',keepalive:true,
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({name:name,phone:phone,email:email,source:'optin-1'})
     }).then(function(r){return r.json();})
       .then(function(d){if(!d.ok)console.warn('시트 저장 실패:',d);})
       .catch(function(e){console.warn('시트 요청 오류:',e);});
 
-    function showSuccess(){
-      form.style.display='none';
-      var s=document.getElementById('success');
-      s.style.display='block';
-      s.scrollIntoView({behavior:'smooth',block:'center'});
+    setTimeout(goNext, 1200);   // 응답이 늦어도 최대 1.2초 후 2차로 이동
+
+    var moved=false;
+    function goNext(){
+      if(moved) return; moved=true;      // 중복 이동 방지
+      window.location.href='/watch';     // 신청 즉시 2차 영상으로 이동
     }
   });
 </script>
