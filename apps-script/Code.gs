@@ -122,7 +122,7 @@ function doGet(e) {
   var debug = e && e.parameter && e.parameter.debug;
   if (!debug) return _json({ ok: true, service: 'funnel-tracker', ts: _now() });
 
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = _ss();
   var target = _sheet();
   var tabs = ss.getSheets().map(function (sh) {
     var lastCol = Math.max(sh.getLastColumn(), 1);
@@ -131,8 +131,10 @@ function doGet(e) {
   });
   return _json({
     ok: true, ts: _now(),
+    spreadsheet: ss.getName(),
     usingSheet: target ? target.getName() : null,
     secretSet: !!PropertiesService.getScriptProperties().getProperty('SHEETS_SECRET'),
+    spreadsheetIdSet: !!PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID'),
     tabs: tabs
   });
 }
@@ -145,8 +147,23 @@ function doGet(e) {
  *  2) 아니면 1행에 "토큰" 헤더가 있는 시트를 자동 탐색 (탭 순서/이름 무관)
  *  3) 그래도 없으면 첫 번째 시트
  */
+/**
+ * 대상 스프레드시트
+ *  스크립트 속성 SPREADSHEET_ID 가 있으면 그 파일을 열고(권장),
+ *  없으면 이 스크립트가 붙어 있는 파일을 사용한다.
+ *  ※ 다른 파일에 기록해야 할 때 SPREADSHEET_ID만 넣으면 됨 (배포 URL 유지)
+ */
+function _ss() {
+  var id = PropertiesService.getScriptProperties().getProperty('SPREADSHEET_ID');
+  if (id) {
+    try { return SpreadsheetApp.openById(id.trim()); }
+    catch (e) { throw new Error('SPREADSHEET_ID로 시트를 열 수 없습니다: ' + e); }
+  }
+  return SpreadsheetApp.getActiveSpreadsheet();
+}
+
 function _sheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var ss = _ss();
   if (SHEET_NAME) {
     var named = ss.getSheetByName(SHEET_NAME);
     if (named) return named;
