@@ -2,11 +2,65 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>신청하기 | 쇼핑커넥트 수익화 프로젝트</title>
-<meta name="description" content="쇼핑커넥트 챌린지·프리미엄 신청 및 1:1 상담 예약." />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>1:1 상담 예약 · 접수 | 쇼핑커넥트 수익화</title>
 <meta name="robots" content="noindex" />
 <link rel="stylesheet" href="/assets/css/common.css" />
+<style>
+  .ap-eyebrow-wrap{text-align:center;margin-bottom:18px;}
+  .ap-sec{margin-top:26px;}
+  .ap-sec-head{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:800;color:var(--ink);letter-spacing:-.4px;}
+  .ap-sec-head .n{flex:0 0 28px;height:28px;border-radius:50%;background:var(--brand);color:#fff;display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;}
+  .ap-sec-head em{margin-left:auto;font-style:normal;color:var(--brand-strong);font-weight:800;}
+  .ap-note{font-size:13.5px;color:var(--ink-soft);margin:8px 0 12px;letter-spacing:-.3px;word-break:keep-all;}
+  .ap-note b{color:var(--brand-strong);}
+
+  /* 예약 임베드 */
+  .ap-embed{width:100%;min-height:620px;background:#fff;border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+  .ap-embed iframe{width:100%;height:620px;border:0;display:block;}
+  .ap-embed-empty{min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center;color:var(--ink-soft);padding:30px;}
+  .ap-embed-empty .ico{font-size:40px;}
+  .ap-embed-empty .t{font-weight:800;color:var(--ink);}
+  .ap-embed-empty .d{font-size:13px;line-height:1.6;}
+  .ap-embed-empty code{background:var(--tint);border:1px solid var(--border);border-radius:6px;padding:1px 6px;font-size:12px;}
+
+  /* 결제 배너 */
+  .ap-banners{display:flex;flex-direction:column;gap:12px;}
+  .ap-paybanner{display:flex;align-items:center;gap:14px;width:100%;text-decoration:none;cursor:pointer;
+    border-radius:14px;padding:18px 18px;border:1px solid var(--border);background:#fff;font-family:inherit;text-align:left;transition:transform .06s,box-shadow .15s;}
+  .ap-paybanner:active{transform:translateY(1px);}
+  .ap-paybanner .ic{font-size:26px;flex:0 0 auto;}
+  .ap-paybanner .tx{display:flex;flex-direction:column;}
+  .ap-paybanner .tx b{font-size:16px;color:var(--ink);letter-spacing:-.3px;}
+  .ap-paybanner .tx small{font-size:12.5px;color:var(--ink-soft);margin-top:2px;}
+  .ap-paybanner.card{background:linear-gradient(180deg,#FF7A45,var(--brand));border:none;box-shadow:0 12px 26px -12px rgba(226,72,18,.6);}
+  .ap-paybanner.card .tx b, .ap-paybanner.card .tx small{color:#fff;}
+
+  .ap-kakao{display:flex;align-items:center;justify-content:center;gap:8px;margin-top:16px;text-decoration:none;
+    background:#FEE500;color:#3C1E1E;font-weight:800;font-size:15px;border-radius:12px;padding:14px;letter-spacing:-.3px;}
+  .ap-kakao svg{width:20px;height:20px;}
+  .ap-done-link{display:block;text-align:center;margin-top:18px;color:var(--ink-soft);font-size:14.5px;text-decoration:none;}
+  .ap-done-link b{color:var(--brand-strong);}
+
+  /* 모달 */
+  .ap-modal{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;padding:18px;}
+  .ap-modal[hidden]{display:none;}
+  .ap-modal-backdrop{position:absolute;inset:0;background:rgba(20,15,12,.6);}
+  .ap-modal-box{position:relative;background:#fff;border-radius:18px;padding:26px 22px;max-width:400px;width:100%;box-shadow:0 30px 70px -20px rgba(0,0,0,.5);}
+  .ap-modal-x{position:absolute;top:12px;right:14px;background:none;border:none;font-size:26px;color:var(--muted);cursor:pointer;line-height:1;}
+  .ap-modal-title{font-size:18px;font-weight:800;color:var(--ink);text-align:center;}
+  .ap-modal-amt{font-size:26px;font-weight:800;color:var(--brand-strong);text-align:center;margin:6px 0 18px;}
+  .ap-account{background:var(--tint);border:1px solid var(--border);border-radius:14px;padding:16px;}
+  .ap-account .row{display:flex;align-items:center;justify-content:space-between;gap:12px;}
+  .ap-account .bank{font-size:13px;color:var(--ink-soft);}
+  .ap-account .num{font-size:18px;font-weight:800;color:var(--ink);letter-spacing:-.3px;}
+  .ap-copy{flex:0 0 auto;border:1px solid var(--brand-line);background:var(--brand-soft);color:var(--brand-strong);font-weight:700;font-size:13px;border-radius:10px;padding:9px 14px;cursor:pointer;}
+  .ap-copy.done{background:var(--brand);color:#fff;border-color:var(--brand);}
+  .ap-account .holder{font-size:14px;color:var(--ink);margin-top:10px;font-weight:600;}
+  .ap-account .memo{font-size:12.5px;color:var(--ink-soft);margin-top:8px;line-height:1.5;}
+  .ap-account .memo b{color:var(--brand-strong);}
+  .ap-modal-done{display:block;text-align:center;margin:16px 0 4px;padding:14px;border-radius:12px;background:var(--brand);color:#fff;font-weight:800;text-decoration:none;}
+</style>
 </head>
 <body>
   <div class="topbar"></div>
@@ -17,69 +71,74 @@
       <!-- 퍼널 스텝: 4/4 -->
       <div class="steps"><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span><span class="dot on"></span></div>
 
-      <div class="eyebrow-row">
-        <span class="eyebrow">✅ 마지막 단계 · 신청서를 남겨주세요</span>
-      </div>
+      <div class="ap-eyebrow-wrap"><span class="eyebrow">🎯 1:1 상담컨설팅 접수</span></div>
+      <h1>상담 시간을 예약하고<br /><span class="hl">참가비를 결제</span>하면 접수 완료</h1>
+      <p class="sub" style="margin-top:14px;">아래에서 시간을 예약한 뒤,<br />참가비 <b>5만원</b>을 결제해 주세요.</p>
 
-      <h1>신청 정보를 남기시면<br /><span class="hl">결제·시작 안내</span>를 드립니다</h1>
-      <p class="sub" style="margin-top:14px;">프리미엄(1:1) 선택 시, 담당자가 <b>상담 일정</b>을 조율해 드립니다.</p>
-
-      <div class="form-card" style="margin-top:22px;">
-        <form id="applyForm" name="stb_subscribe_form"
-              action="https://stibee.com/api/v1.0/lists/xaS0ekIoukh2lSJZ5BQAuS59LAWE8g==/public/subscribers"
-              method="POST" accept-charset="utf-8" novalidate>
-
-          <label class="field">
-            <span class="lb">신청 상품을 선택하세요</span>
-            <select name="option_label" id="optionSelect" required>
-              <option value="챌린지(33만원)">챌린지 · 4주 챌린지 (33만원)</option>
-              <option value="프리미엄(99만원)">프리미엄 · 1:1 완전정복 (99만원)</option>
-              <option value="상담먼저">아직 고민중 · 상담 먼저 받고 싶어요</option>
-            </select>
-          </label>
-
-          <label class="field">
-            <span class="lb">성함</span>
-            <input type="text" name="name" placeholder="홍길동" autocomplete="name" required />
-          </label>
-          <label class="field">
-            <span class="lb">휴대폰 번호</span>
-            <input type="tel" name="phone" placeholder="010-1234-5678" autocomplete="tel" inputmode="numeric" required />
-          </label>
-          <label class="field">
-            <span class="lb">이메일 주소</span>
-            <input type="email" name="email" placeholder="example@email.com" autocomplete="email" required />
-          </label>
-
-          <label class="field" id="timeField">
-            <span class="lb">상담 희망 시간대 (프리미엄·상담 선택 시)</span>
-            <input type="text" name="pref_time" placeholder="예) 평일 저녁 8시 이후 / 주말 오전" />
-          </label>
-
-          <div class="consent">
-            <input type="checkbox" id="agree" name="agree" />
-            <label for="agree"><b>[필수]</b> 개인정보 수집·이용 및 광고성 정보 수신에 동의합니다. <a id="termsToggle">전문 보기</a></label>
+      <!-- ① 시간 예약 -->
+      <section class="ap-sec">
+        <div class="ap-sec-head"><span class="n">1</span> 상담 시간 예약</div>
+        <p class="ap-note">예약 시 <b>입금자명(성함)</b>을 정확히 입력해 주세요.</p>
+        <div class="ap-embed" id="apBooking">
+          <div class="ap-embed-empty">
+            <div class="ico">📅</div>
+            <div class="t">구글 예약 일정이 들어갈 자리입니다</div>
+            <div class="d">아래 스크립트의 <code>bookingUrl</code>에 구글 캘린더<br />'예약 일정' 주소를 넣으면 여기에 예약창이 표시됩니다</div>
           </div>
-          <div class="terms-box" id="terms">
-            <b>[개인정보 수집·이용 동의]</b><br />
-            · 수집 항목: 성함, 휴대폰 번호, 이메일 주소, 신청상품, 상담희망시간<br />
-            · 수집 목적: 신청 접수, 결제·수강 안내, 1:1 상담 일정 조율<br />
-            · 보유·이용 기간: 수집일로부터 1년 또는 동의 철회 시까지
-          </div>
-
-          <button type="submit" class="cta" id="submitBtn" disabled>신청 접수하기</button>
-          <p class="footnote">접수 후 영업일 기준 빠르게 연락드립니다.</p>
-        </form>
-
-        <div class="success" id="success">
-          <div class="ic">🎉</div>
-          <h3>신청이 접수되었습니다!</h3>
-          <p>입력하신 연락처로 <b>결제·시작 안내</b>를 곧 드리겠습니다.<br />프리미엄/상담 신청은 일정 조율을 위해 별도로 연락드립니다.</p>
         </div>
-      </div>
+      </section>
+
+      <!-- ② 참가비 결제 -->
+      <section class="ap-sec">
+        <div class="ap-sec-head"><span class="n">2</span> 참가비 결제 <em>50,000원</em></div>
+        <p class="ap-note">진심인 분만 모시기 위한 유료 상담이며, 정규 프로그램 등록 시 <b>전액 차감</b>됩니다.</p>
+        <div class="ap-banners">
+          <button type="button" class="ap-paybanner deposit" id="apDepositBtn">
+            <span class="ic">🏦</span>
+            <span class="tx"><b>온라인 입금하기</b><small>계좌이체</small></span>
+          </button>
+          <a class="ap-paybanner card" id="apTossBtn" href="#">
+            <span class="ic">💳</span>
+            <span class="tx"><b>카드로 결제하기</b><small>토스 간편결제</small></span>
+          </a>
+        </div>
+      </section>
+
+      <a class="ap-kakao" id="apKakao" href="#" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="#3C1E1E" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.79 1.86 5.24 4.66 6.66-.15.53-.74 2.62-.85 3.03-.13.5.18.49.39.36.16-.11 2.6-1.77 3.66-2.49.7.1 1.42.16 2.14.16 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>
+        입금 후 카톡주세요
+      </a>
+
+      <a class="ap-done-link" id="apDoneLink" href="#">✅ 예약·결제까지 마치셨다면 <b>접수 완료 확인 →</b></a>
 
     </section>
   </main>
+
+  <!-- 온라인 입금 안내 모달 -->
+  <div class="ap-modal" id="apModal" hidden>
+    <div class="ap-modal-backdrop" data-close></div>
+    <div class="ap-modal-box" role="dialog" aria-modal="true" aria-label="온라인 입금 안내">
+      <button type="button" class="ap-modal-x" data-close aria-label="닫기">&times;</button>
+      <div class="ap-modal-title">온라인 입금 안내</div>
+      <div class="ap-modal-amt">50,000원</div>
+      <div class="ap-account">
+        <div class="row">
+          <div>
+            <div class="bank" id="apBank">은행명</div>
+            <div class="num" id="apAccount">000-0000-0000</div>
+          </div>
+          <button type="button" class="ap-copy" id="apCopy">복사</button>
+        </div>
+        <div class="holder" id="apHolder">예금주 (입력)</div>
+        <div class="memo">※ 입금자명을 <b>예약자 성함과 동일하게</b> 입력해 주세요</div>
+      </div>
+      <a class="ap-modal-done" id="apDoneModal" href="#">입금을 완료했어요 · 접수 확인 →</a>
+      <a class="ap-kakao" id="apKakaoModal" href="#" target="_blank" rel="noopener noreferrer" style="margin-top:12px;">
+        <svg viewBox="0 0 24 24" fill="#3C1E1E" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 3C6.5 3 2 6.6 2 11c0 2.79 1.86 5.24 4.66 6.66-.15.53-.74 2.62-.85 3.03-.13.5.18.49.39.36.16-.11 2.6-1.77 3.66-2.49.7.1 1.42.16 2.14.16 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>
+        입금 후 카톡주세요
+      </a>
+    </div>
+  </div>
 
   <footer>
     <p class="biz">
@@ -91,53 +150,71 @@
   </footer>
 
 <script>
-  var form=document.getElementById('applyForm'), agree=document.getElementById('agree'),
-      btn=document.getElementById('submitBtn'), terms=document.getElementById('terms'),
-      optionSelect=document.getElementById('optionSelect');
+  /* ============================================================
+     ⭐ 여기만 채우면 됩니다 (예약·결제·계좌·카톡)
+     ============================================================ */
+  var APPLY_CONFIG = {
+    // ① 구글 캘린더 '예약 일정' 임베드 주소 (…/appointments/schedules/…?gv=true)
+    bookingUrl: '',
+    // ② 카드결제 링크 (토스페이먼츠 등). 비우면 안내 알림이 뜹니다.
+    paymentUrl: '',
+    // ③ 온라인 입금 계좌
+    bank: { name: '', account: '', holder: '' },
+    // ④ 입금 문의 카카오톡 오픈채팅 주소
+    kakaoUrl: '',
+    // 접수 완료 후 이동 페이지
+    doneUrl: '/done'
+  };
 
-  // 3차에서 ?option=premium 으로 넘어오면 자동 선택
-  var params=new URLSearchParams(location.search);
-  if(params.get('option')==='premium') optionSelect.value='프리미엄(99만원)';
-  if(params.get('option')==='challenge') optionSelect.value='챌린지(33만원)';
+  (function(){
+    'use strict';
+    var C = APPLY_CONFIG;
 
-  agree.addEventListener('change',function(){btn.disabled=!agree.checked;});
-  document.getElementById('termsToggle').addEventListener('click',function(){terms.classList.toggle('open');});
-  form.phone.addEventListener('input',function(e){
-    var v=e.target.value.replace(/[^0-9]/g,'').slice(0,11);
-    if(v.length<4)e.target.value=v;
-    else if(v.length<8)e.target.value=v.slice(0,3)+'-'+v.slice(3);
-    else e.target.value=v.slice(0,3)+'-'+v.slice(3,7)+'-'+v.slice(7);
-  });
-
-  form.addEventListener('submit',function(e){
-    e.preventDefault();
-    var name=form.name.value.trim(), phone=form.phone.value.trim(), email=form.email.value.trim();
-    if(!name){alert('성함을 입력해 주세요.');form.name.focus();return;}
-    if(phone.replace(/[^0-9]/g,'').length<10){alert('휴대폰 번호를 정확히 입력해 주세요.');form.phone.focus();return;}
-    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)){alert('이메일 주소를 정확히 입력해 주세요.');form.email.focus();return;}
-    if(!agree.checked){alert('개인정보 수집·이용에 동의해 주세요.');return;}
-
-    // ── 스티비(Stibee) 전송 ──
-    // ⚠️ 신청/상담은 옵션·희망시간까지 남기는 것이 좋습니다.
-    //    스티비에서 이 값을 저장하려면 해당 리스트에 'option_label','pref_time' 커스텀 필드를 먼저 만들어야 합니다.
-    //    (없으면 아래 payload에서 두 줄을 빼고 email/name/phone만 전송하세요)
-    var STIBEE_ENDPOINT='https://stibee.com/api/v1.0/lists/xaS0ekIoukh2lSJZ5BQAuS59LAWE8g==/public/subscribers';
-    btn.disabled=true; btn.textContent='접수 중...';
-    var payload=new URLSearchParams();
-    payload.append('email',email); payload.append('name',name); payload.append('phone',phone);
-    payload.append('option_label',optionSelect.value);
-    payload.append('pref_time',form.pref_time.value.trim());
-    fetch(STIBEE_ENDPOINT,{method:'POST',mode:'no-cors',
-      headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-      body:payload.toString()
-    }).then(showSuccess).catch(function(err){console.error('Stibee 전송 오류:',err);showSuccess();});
-
-    function showSuccess(){
-      form.style.display='none';
-      var s=document.getElementById('success'); s.style.display='block';
-      s.scrollIntoView({behavior:'smooth',block:'center'});
+    // 예약 임베드
+    if (C.bookingUrl) {
+      var box = document.getElementById('apBooking');
+      box.innerHTML = '';
+      var f = document.createElement('iframe');
+      f.src = C.bookingUrl; f.loading = 'lazy'; f.title = '상담 예약';
+      box.appendChild(f);
     }
-  });
+
+    // 계좌 정보
+    function setText(id, t){ if(!t) return; var el=document.getElementById(id); if(el) el.textContent=t; }
+    setText('apBank', C.bank.name);
+    setText('apAccount', C.bank.account);
+    if (C.bank.holder) setText('apHolder', '예금주 ' + C.bank.holder);
+
+    // 카카오 링크
+    ['apKakao','apKakaoModal'].forEach(function(id){ var el=document.getElementById(id); if(el && C.kakaoUrl) el.href=C.kakaoUrl; });
+
+    // 완료 확인 링크
+    ['apDoneLink','apDoneModal'].forEach(function(id){ var el=document.getElementById(id); if(el) el.href=C.doneUrl; });
+
+    // 카드결제 (토스, 새 탭)
+    var toss = document.getElementById('apTossBtn');
+    if (C.paymentUrl){ toss.href=C.paymentUrl; toss.target='_blank'; toss.rel='noopener noreferrer'; }
+    toss.addEventListener('click', function(e){
+      if (!C.paymentUrl){ e.preventDefault(); alert('카드결제 링크가 아직 연결되지 않았습니다.\napply/index.html 상단 paymentUrl 을 넣어주세요.'); }
+    });
+
+    // 온라인 입금 모달
+    var modal=document.getElementById('apModal'), openBtn=document.getElementById('apDepositBtn');
+    function open(){ modal.hidden=false; document.body.style.overflow='hidden'; }
+    function close(){ modal.hidden=true; document.body.style.overflow=''; }
+    openBtn.addEventListener('click', open);
+    modal.querySelectorAll('[data-close]').forEach(function(el){ el.addEventListener('click', close); });
+    document.addEventListener('keydown', function(e){ if(e.key==='Escape') close(); });
+
+    // 계좌 복사
+    var copy=document.getElementById('apCopy');
+    copy.addEventListener('click', function(){
+      var num=(C.bank.account)||document.getElementById('apAccount').textContent;
+      function done(){ copy.textContent='복사됨 ✓'; copy.classList.add('done'); setTimeout(function(){ copy.textContent='복사'; copy.classList.remove('done'); },2000); }
+      if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(num).then(done).catch(fb); } else fb();
+      function fb(){ var ta=document.createElement('textarea'); ta.value=num; document.body.appendChild(ta); ta.select(); try{document.execCommand('copy');done();}catch(e){} document.body.removeChild(ta); }
+    });
+  })();
 </script>
 </body>
 </html>
